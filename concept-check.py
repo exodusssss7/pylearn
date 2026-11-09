@@ -185,6 +185,92 @@ def check_concept(source, rule):
                 shown=rule=='function_loop' or has_call(loop.body,'print',lambda a:isinstance(a,ast.Call) and isinstance(a.func,ast.Name) and a.func.id==f.name)
                 ok |= gives and bool(calls_f) and shown
         return result(ok,'Define a one-parameter function, then loop over at least two strings and call it with the loop variable. '+('The function must return joined text; print the returned message inside the loop.' if rule=='function_project' else 'Print the received parameter inside the function.'))
+    dictionaries={t.id:st.value for st in tree.body if isinstance(st,ast.Assign) and isinstance(st.value,ast.Dict) for t in st.targets if isinstance(t,ast.Name)}
+    def dictionary(n, minimum=1):
+        if not isinstance(n,ast.Name) or n.id not in dictionaries:return False
+        d=dictionaries[n.id]
+        return len(d.keys)>=minimum and all(text(k) and text(v) for k,v in zip(d.keys,d.values)) and len({k.value for k in d.keys})==len(d.keys)
+    def keys(name):return {k.value for k in dictionaries[name].keys}
+    def lookup(n,name=None,key=None):
+        return isinstance(n,ast.Subscript) and dictionary(n.value) and (name is None or n.value.id==name) and (key is None or const(n.slice,key))
+    if rule=='dict_make':
+        return result(any(dictionary(a,2) for a in printed),'Create at least two distinct quoted keys with string values inside curly braces, then print the dictionary by name.')
+    if rule=='dict_read':
+        return result(any(lookup(a) and text(a.slice) and a.slice.value in keys(a.value.id) for a in printed),'Print your_dictionary["existing key"]. Use square brackets and match the stored key exactly.')
+    updates=[];additions=[]
+    for st in tree.body:
+        if not isinstance(st,ast.Assign) or not text(st.value):continue
+        for t in st.targets:
+            if not lookup(t) or not text(t.slice):continue
+            name=t.value.id;key=t.slice.value
+            if key not in keys(name): additions.append((name,key))
+            elif any(const(k,key) and isinstance(v,ast.Constant) and v.value!=st.value.value for k,v in zip(dictionaries[name].keys,dictionaries[name].values)):updates.append((name,key))
+    if rule=='dict_update':
+        return result(any(any(lookup(a,name,key) for a in printed) for name,key in updates),'Replace an existing key with a different string value, then print the value under that same key.')
+    if rule=='dict_add':
+        ok=any(name in printed_names and any(is_len(a,lambda v:name_is(v,name)) for a in printed) for name,key in additions)
+        return result(ok,'Assign a value under a new string key, then print the whole dictionary and len(your_dictionary). Do not use append on a dictionary.')
+    if rule=='dict_in':
+        ok=False
+        for branch in tree.body:
+            if not isinstance(branch,ast.If):continue
+            test=branch.test
+            if not (isinstance(test,ast.Compare) and len(test.ops)==1 and isinstance(test.ops[0],ast.In) and text(test.left) and dictionary(test.comparators[0])):continue
+            name=test.comparators[0].id;key=test.left.value
+            ok |= key in keys(name) and has_call(branch.body,'print',lambda a:lookup(a,name,key))
+        return result(ok,'Use if "existing key" in your_dictionary:, then indent a print of the value under that same key.')
+    if rule=='dict_get':
+        ok=any(isinstance(a,ast.Call) and isinstance(a.func,ast.Attribute) and a.func.attr=='get' and dictionary(a.func.value) and len(a.args)==2 and all(text(x) for x in a.args) and a.args[0].value not in keys(a.func.value.id) for a in printed)
+        return result(ok,'Print your_dictionary.get("missing key", "fallback"). Use a key that is not already in the starting dictionary.')
+    dict_loops=[st for st in tree.body if isinstance(st,ast.For) and isinstance(st.target,ast.Name) and dictionary(st.iter,2)]
+    if rule in ('dict_loop','dict_project'):
+        ok=False
+        for loop in dict_loops:
+            name=loop.iter.id;variable=loop.target.id
+            show=any(isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='print' and any(name_is(a,variable) for a in n.args) and any(lookup(a,name) and name_is(a.slice,variable) for a in n.args) for st in loop.body for n in ast.walk(st))
+            if rule=='dict_loop':ok |= show;continue
+            changed=any(n==name for n,k in updates);added=any(n==name for n,k in additions)
+            final=has_call(tree.body[tree.body.index(loop)+1:],'print',lambda a:is_len(a,lambda v:name_is(v,name)))
+            ok |= show and changed and added and final
+        return result(ok,'Loop directly over a dictionary with at least two entries and print(key, your_dictionary[key]). '+('Before the loop, update an existing key and add a new key. After it, print the dictionary length.' if rule=='dict_project' else 'Use the loop variable without quotes in the lookup.'))
+    # Unit 6: trace reads and conversions through the learner's chosen names.
+    def input_call(n):return isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='input'
+    def follows(n,predicate,seen=()):
+        if predicate(n):return True
+        if isinstance(n,ast.Name) and n.id in values and n.id not in seen:return follows(values[n.id],predicate,seen+(n.id,))
+        return any(follows(child,predicate,seen) for child in ast.iter_child_nodes(n))
+    def converted(n,kind):return isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id==kind and len(n.args)==1 and follows(n.args[0],input_call)
+    if rule in ('input_read','input_prompt'):
+        names={t.id for st in tree.body if isinstance(st,ast.Assign) and input_call(st.value) and (rule!='input_prompt' or len(st.value.args)==1 and text(st.value.args[0])) for t in st.targets if isinstance(t,ast.Name)}
+        return result(bool(names & printed_names),'Store input('+('"your prompt"' if rule=='input_prompt' else '')+') in a variable, then print that same variable.')
+    if rule=='input_text':
+        ok=any(isinstance(resolve(a),ast.BinOp) and isinstance(resolve(a).op,ast.Add) and ((text(resolve(a).left) and follows(resolve(a).right,input_call)) or (text(resolve(a).right) and follows(resolve(a).left,input_call))) for a in printed)
+        return result(ok,'Read an answer and print it joined to a nonempty string with +. This step joins text rather than calculating.')
+    if rule in ('input_int','input_float'):
+        kind='int' if rule=='input_int' else 'float'
+        ok=any(isinstance(resolve(a),ast.BinOp) and isinstance(resolve(a).op,ast.Add) and const(resolve(a).right,1) and follows(resolve(a).left,lambda n:converted(n,kind)) for a in printed)
+        return result(ok,'Read input, convert it with '+kind+', then print the converted number + 1. Supply valid '+('whole-number' if kind=='int' else 'decimal')+' text in the answer sheet.')
+    if rule=='number_str':
+        def string_number(n):return isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='str' and len(n.args)==1 and numeric_expr(n.args[0])
+        ok=any(isinstance(resolve(a),ast.BinOp) and isinstance(resolve(a).op,ast.Add) and ((text(resolve(a).left) and string_number(resolve(a).right)) or (text(resolve(a).right) and string_number(resolve(a).left))) for a in printed)
+        return result(ok,'Use str(your_number) to join a number to a nonempty message with +, then print the joined text.')
+    if rule in ('multiply','divide'):
+        operator=ast.Mult if rule=='multiply' else ast.Div
+        ok=any(isinstance(a,ast.BinOp) and isinstance(a.op,operator) and isinstance(a.left,ast.Name) and isinstance(a.right,ast.Name) and numeric_expr(a.left) and numeric_expr(a.right) for a in printed)
+        return result(ok,'Store two numbers in variables, then print their '+('product with *.' if rule=='multiply' else 'division with /. The divisor must be positive.'))
+    if rule=='bill_project':
+        reads=[(t.id,st.value.func.id) for st in tree.body if isinstance(st,ast.Assign) and isinstance(st.value,ast.Call) and isinstance(st.value.func,ast.Name) and st.value.func.id in ('float','int') and len(st.value.args)==1 and input_call(st.value.args[0]) for t in st.targets if isinstance(t,ast.Name)]
+        ok=False
+        if len(reads)>=3 and [kind for name,kind in reads[:3]]==['float','int','int']:
+            price,quantity,people=[name for name,kind in reads[:3]]
+            totals={t.id for st in tree.body if isinstance(st,ast.Assign) and isinstance(st.value,ast.BinOp) and isinstance(st.value.op,ast.Mult) and name_is(st.value.left,price) and name_is(st.value.right,quantity) for t in st.targets if isinstance(t,ast.Name)}
+            for branch in tree.body:
+                if not isinstance(branch,ast.If):continue
+                test=branch.test
+                condition=isinstance(test,ast.Compare) and name_is(test.left,people) and len(test.ops)==1 and isinstance(test.ops[0],ast.Gt) and const(test.comparators[0],0)
+                divided=has_call(branch.body,'print',lambda a:isinstance(a,ast.BinOp) and isinstance(a.op,ast.Div) and isinstance(a.left,ast.Name) and a.left.id in totals and name_is(a.right,people))
+                ok |= condition and divided and has_call(branch.orelse,'print',text)
+        return result(ok,'Read price with float(input()), then quantity and people with int(input()). Store price * quantity as a total. Only inside if people > 0, print total / people. Add an else with a helpful message.')
     loops = [n for n in nodes if isinstance(n, ast.For) and isinstance(n.iter, ast.Call) and isinstance(n.iter.func, ast.Name) and n.iter.func.id == 'range']
     if rule == 'loop':
         loops = [loop for loop in loops if len(loop.iter.args) == 1 and isinstance(loop.iter.args[0], ast.Constant) and isinstance(loop.iter.args[0].value, int) and loop.iter.args[0].value > 1]

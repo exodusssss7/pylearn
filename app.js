@@ -1,7 +1,7 @@
-/* pylearn v0.6 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.7 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.6";
+const VERSION = "v0.7";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -32,7 +32,10 @@ function ensureWorker() {
     if (p) { clearTimeout(p.timer); delete pyPending[m.id]; p.resolve(m); }
   };
 }
-function runPython(code, rule) {
+async function runPython(code, rule, suppliedInputs) {
+  let inputs = suppliedInputs;
+  if (!Array.isArray(inputs) && needsInput(code)) inputs = await requestInputs();
+  if (inputs === null) return {ok:false,cancelled:true,out:"",err:"Run cancelled. Your code is unchanged."};
   ensureWorker();
   return new Promise((resolve) => {
     const id = ++pySeq;
@@ -43,7 +46,22 @@ function runPython(code, rule) {
       resolve({ ok: false, out: "", err: "Run stopped. It may be a loop or a slow Python download. Try again." });
     }, pyReady ? 9000 : 60000);
     pyPending[id] = { resolve, timer };
-    pyWorker.postMessage({ id, code, rule });
+    pyWorker.postMessage({ id, code, rule, inputs:inputs || [] });
+  });
+}
+
+function needsInput(code) {
+  // Ignore ordinary quoted text and comments, so print("input()") stays a print.
+  const plain = code.replace(/"""[\s\S]*?"""|'''[\s\S]*?'''|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|#[^\n]*/g, "");
+  return /\binput\s*\(/.test(plain) || /\bf["'][^\n]*\binput\s*\(/i.test(code);
+}
+
+function requestInputs() {
+  return new Promise(resolve=>{
+    const dialog=document.createElement('dialog');dialog.className='input-dialog';
+    dialog.innerHTML=`<form method="dialog"><div class="step-kicker">PYTHON INPUT</div><h2>Your answers</h2><p>Python will read these when input() runs, one line at a time.</p><label for="input-lines">One answer per line</label><textarea id="input-lines" rows="4" spellcheck="false" autocapitalize="off" placeholder="Ava&#10;12"></textarea><p class="input-note">A blank line is an empty answer. Practice values only: no passwords or private data. Answers are not saved.</p><div class="row"><button class="btn ghost" id="input-cancel" type="submit" value="cancel">Cancel</button><button class="btn" id="input-run" type="submit" value="run">Run code</button></div></form>`;
+    dialog.addEventListener('close',()=>{const answers=dialog.returnValue==='run'?dialog.querySelector('textarea').value.replace(/\r\n/g,'\n').split('\n'):null;dialog.remove();resolve(answers)});
+    document.body.appendChild(dialog);dialog.showModal();dialog.querySelector('textarea').focus();
   });
 }
 
@@ -83,7 +101,9 @@ const UNITS = [
 UNITS.push({id:"u2",title:"Unit 2: Text & lists",sub:"10 lessons. From joining words to your own guest list.",lessons:UNIT2_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
 UNITS.push({id:"u3",title:"Unit 3: Choices & while",heading:"Keep going, with a plan",sub:"11 lessons. Better conditions and loops that know when to stop.",lessons:UNIT3_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
 UNITS.push({id:"u4",title:"Unit 4: Your functions",heading:"Build your own tools",sub:"8 lessons. Reuse instructions, pass values in and return results.",lessons:UNIT4_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
-const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS];
+UNITS.push({id:"u5",title:"Unit 5: Dictionaries",heading:"Give every value a label",sub:"8 lessons. Keys, values and your own profile card.",lessons:UNIT5_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+UNITS.push({id:"u6",title:"Unit 6: Input & numbers",heading:"Let your program listen",sub:"9 lessons. Real answers, number conversions and a snack-bill project.",lessons:UNIT6_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS,...UNIT5_LESSONS,...UNIT6_LESSONS];
 const TOTAL_LESSONS = ALL_LESSONS.length;
 const LESSON_L1 = FIRST_LESSON;
 
@@ -254,8 +274,9 @@ function renderStep() {
       const btn = $("#run");
       btn.disabled = true;
       if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading">${brickBuddy("thinking")}Waking up Python…<div class="py-bar"><i></i></div></div>`;
-      const r = await runPython(s.code);
+      const r = await runPython(s.code, undefined, s.inputs);
       if (!btn.isConnected) return;
+      if(r.cancelled){btn.disabled=false;$("#pymsg").innerHTML="";return;}
       pyReady = !!pyWorker;
       $("#pymsg").innerHTML = "";
       $("#cout").innerHTML = consoleHTML(r.out, r.ok ? null : r.err);
@@ -382,6 +403,7 @@ function renderStep() {
       if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading">${brickBuddy("thinking")}Waking up Python…<div class="py-bar"><i></i></div></div>`;
       const r = await runPython(code, s.rule);
       if (!btn.isConnected) return;
+      if(r.cancelled){btn.disabled=false;$("#pymsg").innerHTML="";return;}
       pyReady = !!pyWorker;
       $("#pymsg").innerHTML = "";
       $("#cout").innerHTML = consoleHTML(r.out, r.ok ? null : friendlyErr(r.err));
@@ -401,6 +423,9 @@ function friendlyErr(err) {
   if (!err) return "Something went wrong";
   const raw = err.replace(/^PythonError:\s*/i, "").split("\n").pop();
   if (/TypeError/.test(raw) && /argument/.test(raw)) return "The function call needs the right number of values. Match the arguments in the call to the parameters in its definition. " + raw;
+  if (/EOFError/.test(raw)) return "The input answers ran out. Run again and provide one line for each input() call, including repeated calls in a loop.";
+  if (/ValueError/.test(raw)) return "That text cannot be converted to the requested number. Use whole-number text such as 12 for int, or decimal text such as 2.5 for float.";
+  if (/KeyError/.test(raw)) return "That dictionary key is missing. Match its spelling and case, check with in, or use .get with a fallback.";
   if (/IndexError/.test(raw)) return "That position does not exist. Indices start at 0; the last valid index is one less than the length.";
   if (/ZeroDivisionError/.test(raw)) return "Python cannot divide by zero. Choose a nonzero divisor.";
   if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside a block such as if, for, while or def with four more spaces.";
@@ -501,6 +526,7 @@ function renderPlayground() {
     if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading">${brickBuddy("thinking")}Waking up Python… (first run takes a few seconds)<div class="py-bar"><i></i></div></div>`;
     const r = await runPython(ed.value);
     if (!btn.isConnected) return;
+    if(r.cancelled){btn.disabled=false;$("#pymsg").innerHTML="";return;}
     pyReady = !!pyWorker;
     $("#pymsg").innerHTML = "";
     $("#pgout").innerHTML = consoleHTML(r.out, r.ok ? null : friendlyErr(r.err));

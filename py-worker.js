@@ -12,9 +12,11 @@ function getPyodide() {
 }
 
 onmessage = async (e) => {
-  const { id, code, rule } = e.data;
+  const { id, code, rule, inputs = [] } = e.data;
   try {
     const pyodide = await getPyodide();
+    let inputIndex = 0;
+    pyodide.setStdin({stdin:()=>inputIndex<inputs.length?String(inputs[inputIndex++]):null});
     let out = [];
     let chars = 0;
     const collect = s => { chars += s.length; if (chars < 16000) out.push(s); else if (out[out.length - 1] !== "[Output limit reached]") out.push("[Output limit reached]"); };

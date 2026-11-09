@@ -493,3 +493,5 @@ body {
 .py-loading .brick-buddy {width:55px;height:59px}
 
 .unit-jumps {display:flex;gap:10px;flex-wrap:wrap;margin:0 0 20px}.unit-jumps .btn {min-height:44px}.unit-section {scroll-margin-top:80px}
+.input-dialog {border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text);padding:22px;width:calc(100% - 32px);max-width:400px;max-height:90dvh;overflow:auto;margin:auto;font-family:inherit}
+.input-dialog::backdrop {background:rgba(5,7,10,.8)}.input-dialog h2 {font-size:25px;margin:8px 0}.input-dialog p {font-size:15px;color:var(--muted);margin-bottom:16px}.input-dialog label {display:block;font-weight:800;font-size:14px;margin-bottom:8px}.input-dialog textarea {width:100%;font:17px/1.5 ui-monospace,monospace;background:var(--bg);color:var(--text);border:1px solid var(--border);padding:12px;border-radius:12px;resize:vertical;min-height:90px}.input-dialog .input-note {font-size:12px;margin:10px 0 18px}.input-dialog .row {display:flex;gap:12px}.input-dialog .row .btn {flex:1;font-size:14px;padding:12px 8px}
