@@ -1,18 +1,20 @@
-# pylearn v0.1-preview
+# pylearn v0.2
 
-A design and interaction preview, not the full course.
+Python from zero in small, interactive steps.
 
-## Included
-- Mobile-first learning path
-- One working 10-step lesson: Say hello (print, quotes, first variables)
-- Real Python via Pyodide 0.29.0 in a Web Worker
-- Text-only Python playground
-- XP, day streak and progress stored in this browser
+## Unit 1
+11 lessons: Say hello, Words & quotes, Numbers, Variables, Text + numbers, True or false, If, Else, Repeat with for, Counting with range, and a Countdown mini project.
 
-## Preview limits
-Only Say hello is playable; the remaining path shows planned lessons. The playground supports text output, not input() or graphics. Python downloads from jsDelivr on first use, so an internet connection is needed. Progress is saved only in this browser and is lost if browser storage is cleared. There is no account sync or backend.
+Every lesson begins with a plain-language concept introduction and a symbol guide. Lessons include common mistakes, worked examples, live Python runs, output prediction, code blanks, tap-to-order code and typing challenges. Complete lessons in order or replay completed lessons. Progress, XP and day streak are saved in this browser.
 
-Built with plain HTML, CSS and JavaScript, with Pyodide 0.29.0 running Python in a Web Worker. Fonts: Nunito from Google Fonts. This is an early preview, not the full course or a secure sandbox for code from other people.
+## Limits
+This is the first unit, not a complete Python course. Typed challenges check Python syntax-tree structure, not exact message wording. Different messages, spelling and capitalization inside strings are accepted. Python instruction names and variable references still follow Python case rules. These checks are educational, not a proof that every possible solution is correct. Hints are available after mistakes; automatic easier replacement exercises are not implemented. Text-output playground only: no interactive input(), graphics or package installation. Python downloads from jsDelivr on first use, so internet is required. Clearing browser storage removes progress. There are no accounts, cloud sync, backend or paid services. Not a secure sandbox for other people's untrusted code.
+
+## Built with
+Plain HTML, CSS and JavaScript; Pyodide 0.29.0 in a Web Worker; Nunito from Google Fonts. Hosted on GitHub Pages.
 
 ## License
 MIT for the app code. Pyodide and fonts retain their own licenses.
+
+## Practice and audio
+Six guided skill cards plus a free-code playground. Mistakes get specific guidance for quotes, parentheses, names and indentation. Sound can be muted in Profile; the setting stays on this device. Effects: Kenney Interface Sounds, CC0, downloaded from https://opengameart.org/content/interface-sounds . Original license is included in audio/LICENSE.txt. These are pre-produced interface effects, not claimed to be field recordings.

@@ -12,17 +12,27 @@ function getPyodide() {
 }
 
 onmessage = async (e) => {
-  const { id, code } = e.data;
+  const { id, code, rule } = e.data;
   try {
     const pyodide = await getPyodide();
     let out = [];
-    pyodide.setStdout({ batched: (s) => out.push(s) });
-    pyodide.setStderr({ batched: (s) => out.push(s) });
+    let chars = 0;
+    const collect = s => { chars += s.length; if (chars < 16000) out.push(s); else if (out[out.length - 1] !== "[Output limit reached]") out.push("[Output limit reached]"); };
+    pyodide.setStdout({ batched: collect });
+    pyodide.setStderr({ batched: collect });
     try {
       const scope = pyodide.toPy({});
+      let concept = null;
+      if (rule) {
+        const validator = await fetch("concept-check.py?v=0.2").then(r => { if (!r.ok) throw Error("Checker unavailable"); return r.text(); });
+        scope.set("_source", code); scope.set("_rule", rule);
+        await pyodide.runPythonAsync(validator, { globals: scope });
+        const feedback = await pyodide.runPythonAsync("check_concept(_source, _rule)", { globals: scope });
+        concept = { ok: !feedback, feedback };
+      }
       try { await pyodide.runPythonAsync(code, { globals: scope }); }
       finally { scope.destroy(); }
-      postMessage({ id, ok: true, out: out.join("\n") });
+      postMessage({ id, ok: true, out: out.join("\n"), concept });
     } catch (err) {
       // Trim the traceback to the useful Python error line
       const msg = String(err && err.message ? err.message : err);

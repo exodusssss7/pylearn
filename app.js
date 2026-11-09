@@ -1,7 +1,7 @@
-/* pylearn v0.1-preview - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.2 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.1-preview";
+const VERSION = "v0.2";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -14,13 +14,17 @@ function loadState() {
     return Object.assign({}, DEFAULT_STATE, s || {});
   } catch (e) { return { ...DEFAULT_STATE }; }
 }
-function saveState() { localStorage.setItem("pylearn-v1", JSON.stringify(state)); }
+function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(state)); } catch(e) { toast("Storage is unavailable. Progress lasts only until you close this page."); } }
 
 /* ---------- python runner (worker) ---------- */
 let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0;
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js");
+  pyWorker = new Worker("py-worker.js?v=0.2");
+  pyWorker.onerror = () => {
+    for (const id of Object.keys(pyPending)) { const p = pyPending[id]; clearTimeout(p.timer); p.resolve({ ok: false, out: "", err: "Python could not load. Check your connection and try again." }); delete pyPending[id]; }
+    pyWorker.terminate(); pyWorker = null; pyReady = false;
+  };
   pyWorker.onmessage = (e) => {
     const m = e.data;
     if (m.id === -1) return;
@@ -28,7 +32,7 @@ function ensureWorker() {
     if (p) { clearTimeout(p.timer); delete pyPending[m.id]; p.resolve(m); }
   };
 }
-function runPython(code, onProgress) {
+function runPython(code, rule) {
   ensureWorker();
   return new Promise((resolve) => {
     const id = ++pySeq;
@@ -39,7 +43,7 @@ function runPython(code, onProgress) {
       resolve({ ok: false, out: "", err: "Run stopped. It may be a loop or a slow Python download. Try again." });
     }, pyReady ? 9000 : 60000);
     pyPending[id] = { resolve, timer };
-    pyWorker.postMessage({ id, code });
+    pyWorker.postMessage({ id, code, rule });
   });
 }
 
@@ -68,91 +72,15 @@ function hi(code) {
 /* ---------- content ---------- */
 const UNITS = [
   {
-    id: "u1", title: "Unit 1: First Steps", sub: "Make Python talk, store things, do math",
+    id: "u1", title: "Unit 1: First Steps", sub: "11 tiny lessons. From hello to your own countdown.",
     lessons: [
       { id: "l1", title: "Say hello", icon: "👋" },
-      { id: "l2", title: "Words & quotes", icon: "💬" },
-      { id: "l3", title: "Numbers", icon: "🔢" },
-      { id: "l4", title: "Variables", icon: "📦" },
-      { id: "l5", title: "Mini project", icon: "🎮" },
+      ...EXTRA_LESSONS.map(({id,title,icon}) => ({id,title,icon})),
     ],
   },
 ];
 
-const LESSON_L1 = {
-  id: "l1",
-  title: "Say hello",
-  steps: [
-    {
-      t: "info", kicker: "New idea", title: "Python can talk",
-      body: "Use print( ) to make Python say something.\nWhatever you put inside the brackets shows up on the screen.",
-      code: 'print("Hello!")', out: "Hello!",
-    },
-    {
-      t: "run", kicker: "Try it", title: "Press Run",
-      prompt: "This code is ready to go. Just press Run and watch what happens.",
-      code: 'print("Hello, world!")', expect: "Hello, world!",
-    },
-    {
-      t: "choice", kicker: "Quick check", title: "What shows up?",
-      prompt: 'When you run  print("I love pizza")  what do you see?',
-      options: ["I love pizza", '"I love pizza"', "print", "An error"],
-      answer: 0,
-      why: "The quotes mark where the text starts and ends - the outer quotes are not printed.",
-    },
-    {
-      t: "fill", kicker: "Fill the blank", title: "Complete the code",
-      prompt: "Make Python say Hi there!",
-      pre: "", post: '("Hi there!")',
-      options: ["print", "say", "echo", "shout"],
-      answer: "print",
-      why: "print( ) displays text on the screen.",
-    },
-    {
-      t: "type", kicker: "Your turn", title: "Type it yourself",
-      prompt: "Make Python say exactly this:\nI am learning Python",
-      starter: 'print("")',
-      check: (code, out) => out.trim() === "I am learning Python",
-      hint: 'Put the sentence between the quotes: print("I am learning Python")',
-    },
-    {
-      t: "info", kicker: "New idea", title: "Strings",
-      body: "Text inside quotes is called a string.\nUse \"double\" or 'single' quotes. Just start and end with the same kind.",
-      code: "print(\"double quotes work\")\nprint('single quotes work')",
-      out: "double quotes work\nsingle quotes work",
-    },
-    {
-      t: "choice", kicker: "Quick check", title: "Spot the good line",
-      prompt: "Only one of these is correct Python. Which one?",
-      options: ['print(Hello)', 'print("Hello")', 'print("Hello\')', 'print "Hello"'],
-      answer: 1,
-      why: 'Text needs matching quotes: print("Hello")',
-    },
-    {
-      t: "run", kicker: "New idea", title: "Boxes with names",
-      prompt: "A variable stores a value so you can use it again.\nHere we store \"Sam\" in a box called name. Press Run.",
-      code: 'name = "Sam"\nprint(name)', expect: "Sam",
-    },
-    {
-      t: "fill", kicker: "Fill the blank", title: "Store it",
-      prompt: "Store Minecraft in a variable called game.",
-      pre: "game ", post: ' "Minecraft"',
-      options: [":", "=", "is", "=="],
-      answer: "=",
-      why: "One = stores a value. Two (==) is for comparing - you will meet it later.",
-    },
-    {
-      t: "type", kicker: "Boss step", title: "Prove it",
-      prompt: "Create a variable called age with your age in it, then print it.",
-      starter: "# your code here\n",
-      check: (code, out) => {
-        const m = code.match(/age\s*=\s*(\d+)/);
-        return !!m && out.trim() === m[1];
-      },
-      hint: "Two lines:\nage = 16\nprint(age)\n(use your real age)",
-    },
-  ],
-};
+const LESSON_L1 = FIRST_LESSON;
 
 /* ---------- views ---------- */
 const app = $("#app");
@@ -175,7 +103,7 @@ function topbarHTML() {
 function navHTML(active) {
   return `<div class="bottomnav">
     <button class="navbtn ${active === "home" ? "active" : ""}" data-nav="home">${ICONS.home}Learn</button>
-    <button class="navbtn ${active === "play" ? "active" : ""}" data-nav="play">${ICONS.code}Playground</button>
+    <button class="navbtn ${active === "play" ? "active" : ""}" data-nav="play">${ICONS.code}Practice</button>
     <button class="navbtn ${active === "me" ? "active" : ""}" data-nav="me">${ICONS.user}Profile</button>
   </div>`;
 }
@@ -183,18 +111,19 @@ function bindNav() {
   $$(".navbtn").forEach((b) => (b.onclick = () => {
     const v = b.dataset.nav;
     if (v === "home") renderHome();
-    if (v === "play") renderPlayground();
+    if (v === "play") renderPractice();
     if (v === "me") renderProfile();
   }));
 }
 
 /* ---------- home ---------- */
 function renderHome() {
+  document.querySelectorAll(".confetti-layer").forEach(e => e.remove());
   navView = "home";
   const u = UNITS[0];
   const nodes = u.lessons.map((l, i) => {
     const done = state.done.includes(l.id);
-    const unlocked = i === 0;
+    const unlocked = i === 0 || state.done.includes(u.lessons[i - 1].id);
     const cls = done ? "done" : unlocked ? "current" : "locked";
     const icon = done ? "⭐" : unlocked ? l.icon : "🔒";
     const bubble = !done && unlocked ? '<div class="start-bubble">START</div>' : "";
@@ -213,15 +142,15 @@ function renderHome() {
         <div class="unit-title">Python from zero</div>
         <div class="unit-sub">${u.sub}</div>
       </div>
+      <div class="course-progress">${state.done.length} / 11 lessons complete · ${VERSION}</div>
       <div class="path">${nodes}</div>
     </div>
     ${navHTML("home")}
   </div>`;
 
   $$(".node").forEach((n) => (n.onclick = () => {
-    if (n.dataset.unlocked !== "true") { toast("Preview: only Say hello is available. More lessons come after approval."); return; }
-    if (n.dataset.lesson === "l1") startLesson();
-    else toast("This lesson arrives in v0.2 - soon!");
+    if (n.dataset.unlocked !== "true") { toast("Finish the previous lesson first, then this one opens."); return; }
+    startLesson(n.dataset.lesson);
   }));
   bindNav();
 }
@@ -229,8 +158,10 @@ function renderHome() {
 /* ---------- lesson player ---------- */
 let L = null; // active lesson session
 
-function startLesson() {
-  L = { steps: LESSON_L1.steps, i: 0, earned: 0, mistakes: 0 };
+function startLesson(id = "l1") {
+  const lesson = id === "l1" ? LESSON_L1 : EXTRA_LESSONS.find(l => l.id === id);
+  if (!lesson) return;
+  L = { id, title: lesson.title, steps: lesson.steps, i: 0, earned: 0, mistakes: 0, stepMistakes: 0, awarded: new Set() };
   renderLessonShell();
   renderStep();
 }
@@ -281,14 +212,17 @@ function consoleHTML(out, err) {
 }
 
 function showSheet(good, why, onContinue) {
+  if (!good) { L.stepMistakes++; if (L.stepMistakes >= 2) why = "Let's slow down. Use this hint, then try the same step again.\n" + why; }
+  playSound(good ? "correct" : "retry");
   const sheet = $("#sheet");
   sheet.className = "sheet " + (good ? "good" : "bad");
   sheet.innerHTML = `<div class="sheet-title">${good ? "✅ Nice!" : "❌ Not quite"}</div>
-    <div class="sheet-why">${good ? (why || "+10 XP") : why}</div>
+    <div class="sheet-why">${esc(why || "+10 XP")}</div>
     <button class="btn ${good ? "green" : ""}" id="sheetBtn">${good ? "Continue" : "Got it"}</button>`;
   requestAnimationFrame(() => sheet.classList.add("show"));
   $("#sheetBtn").onclick = () => {
     sheet.classList.remove("show");
+    $("#sheetBtn").disabled = true;
     if (good && onContinue) setTimeout(onContinue, 180);
   };
 }
@@ -372,7 +306,7 @@ function renderStep() {
     body.innerHTML = `<div class="step-anim">${stepHead(s)}
       <div class="step-prompt">${esc(s.prompt)}</div>
       <div class="fill-line">${esc(s.pre)}<span class="blank" id="blank">&nbsp;</span>${esc(s.post)}</div>
-      <div class="chips">${s.options.map((o) => `<button class="chip" data-v="${esc(o)}">${esc(o)}</button>`).join("")}</div>
+      <div class="chips">${s.options.map((o) => `<button class="chip" data-v="${esc(o).replace(/"/g, "&quot;")}">${esc(o)}</button>`).join("")}</div>
     </div>`;
     foot.innerHTML = `<button class="btn" id="check" disabled>Check</button>`;
     const blank = $("#blank");
@@ -403,6 +337,27 @@ function renderStep() {
     };
   }
 
+  if (s.t === "order") {
+    let picked = [];
+    body.innerHTML = `<div class="step-anim">${stepHead(s)}
+      <div class="step-prompt">${esc(s.prompt)}</div>
+      <div class="code-card"><pre id="assembled">Tap a line below to add it.</pre></div>
+      <div class="choices">${s.lines.map((line, i) => `<button class="choice mono" style="white-space:pre-wrap" data-line="${i}">${esc(line)}</button>`).join("")}</div>
+      <button class="btn ghost small" id="undo">Undo last line</button></div>`;
+    foot.innerHTML = `<button class="btn" id="check" disabled>Check order</button>`;
+    const update = () => {
+      $("#assembled").textContent = picked.length ? picked.map(i => s.lines[i]).join("\n") : "Tap a line below to add it.";
+      $$("[data-line]").forEach(b => { b.disabled = picked.includes(+b.dataset.line); b.style.opacity = b.disabled ? ".3" : "1"; });
+      $("#check").disabled = picked.length !== s.lines.length;
+    };
+    $$("[data-line]").forEach(b => b.onclick = () => { picked.push(+b.dataset.line); update(); });
+    $("#undo").onclick = () => { picked.pop(); update(); };
+    $("#check").onclick = () => {
+      if (picked.join(",") === s.answer.join(",")) { award(10); foot.innerHTML = ""; showSheet(true, "+10 XP. The loop line comes first. Its indented print runs on every turn.", nextStep); }
+      else { showSheet(false, "Loop line first, indented print next. The final message has no indent, so it runs once after the loop."); }
+    };
+  }
+
   if (s.t === "type") {
     body.innerHTML = `<div class="step-anim">${stepHead(s)}
       <div class="step-prompt">${esc(s.prompt)}</div>
@@ -426,18 +381,18 @@ function renderStep() {
       if (!code.trim()) { toast("Type some code first 🙂"); return; }
       btn.disabled = true;
       if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading"><span class="snake">🐍</span>Waking up Python…<div class="py-bar"><i></i></div></div>`;
-      const r = await runPython(code);
+      const r = await runPython(code, s.rule);
       if (!btn.isConnected) return;
       pyReady = !!pyWorker;
       $("#pymsg").innerHTML = "";
       $("#cout").innerHTML = consoleHTML(r.out, r.ok ? null : friendlyErr(r.err));
-      if (r.ok && s.check(code, r.out)) {
+      if (r.ok && r.concept && r.concept.ok) {
         award(10);
         foot.innerHTML = "";
         showSheet(true, "+10 XP - you wrote that yourself!", nextStep);
       } else {
         btn.disabled = false;
-        showSheet(false, r.ok ? "Runs, but it is not quite it. Hint: " + s.hint : "Python found a problem. Hint: " + s.hint);
+        showSheet(false, r.ok ? r.concept?.feedback || s.hint : friendlyErr(r.err) + "\nTry this pattern: " + s.hint);
       }
     };
   }
@@ -445,20 +400,26 @@ function renderStep() {
 
 function friendlyErr(err) {
   if (!err) return "Something went wrong";
-  return err.replace(/^PythonError:\s*/i, "").split("\n").pop();
+  const raw = err.replace(/^PythonError:\s*/i, "").split("\n").pop();
+  if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside if or for with four spaces.";
+  if (/SyntaxError/.test(raw)) return "Python cannot read that line yet. Check matching straight quotes, closing parentheses, and the colon after if or for.";
+  if (/NameError/.test(raw)) return "Python does not know that name. Text needs quotes. Variable names must match exactly. Use lowercase print.";
+  if (/TypeError/.test(raw)) return "Those value types do not fit together. Try a comma in print to combine text and a number.";
+  return raw;
 }
 
-function award(n) { L.earned += n; }
+function award(n) { if (!L.awarded.has(L.i)) { L.earned += n; L.awarded.add(L.i); } }
 
 function nextStep() {
   L.i++;
+  L.stepMistakes = 0;
   if (L.i >= L.steps.length) finishLesson();
   else renderStep();
 }
 
 function finishLesson() {
-  const firstTime = !state.done.includes("l1");
-  if (firstTime) state.done.push("l1");
+  const firstTime = !state.done.includes(L.id);
+  if (firstTime) state.done.push(L.id);
   state.xp += L.earned;
   // streak: same day = keep, next day = +1, gap = reset to 1
   const t = todayKey();
@@ -469,11 +430,12 @@ function finishLesson() {
     state.lastDay = t;
   }
   saveState();
+  playSound("finish");
   confetti();
   app.innerHTML = `<div class="view">
     <div class="celebrate step-anim">
       <div class="trophy">🏆</div>
-      <h1>Lesson complete!</h1>
+      <h1>${firstTime && state.done.length === 11 ? "Unit complete!" : "Lesson complete!"}</h1>
       <p>You wrote real Python. That is the whole secret - tiny steps, done daily.</p>
       <div class="xp-pill">⚡ +${L.earned} XP</div>
       <button class="btn" id="done">Back to path</button>
@@ -508,6 +470,7 @@ function renderPlayground() {
     ${topbarHTML()}
     <div class="pad">
       <div class="pg-title">Playground 🛝</div>
+      <button class="btn ghost small" onclick="renderPractice()" style="margin:12px 0">Guided practice</button>
       <div class="pg-sub">Try Python here. Text output only in this preview; input and graphics are not supported.</div>
       <div class="editor-wrap"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">playground.py</span></div><textarea class="editor" id="pged" spellcheck="false" autocomplete="off" autocapitalize="off" style="min-height:170px">name = "you"\nfor i in range(3):\n    print("Hi " + name + "!", i + 1)</textarea></div>
       <div class="pg-actions">
@@ -567,7 +530,7 @@ function renderProfile() {
         Learn Python in tiny steps. Real Python runs in your browser -<br>
         Progress is saved on this device. Python loads from a CDN.
       </div>
-      <div style="text-align:center"><button class="danger-link" id="reset">Reset all progress</button></div>
+      <div style="text-align:center;margin-top:14px"><button class="btn small ghost" onclick="toggleSound()">Sound ${soundOn ? "on" : "off"}</button><p style="font-size:12px;color:var(--muted);margin-top:12px">Sound effects: Kenney, Interface Sounds (CC0).<br>Free for personal and commercial use.</p><button class="danger-link" id="reset">Reset all progress</button></div>
     </div>
     ${navHTML("me")}
   </div>`;

@@ -442,3 +442,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 :focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+
+.course-progress { color:var(--muted); font-size:13px; font-weight:800; text-align:center; margin:4px 0 32px; }
+.sheet-why { white-space:pre-line; max-height:35dvh; overflow:auto; }
+
+.practice-tabs {display:flex;gap:12px;margin:16px 0 24px}.skill-select {display:block;width:100%;background:var(--surface-2);color:var(--text);border:1px solid var(--border);padding:13px;border-radius:12px;font:800 16px Nunito,system-ui;margin:8px 0 16px}.practice-intro {border-left:3px solid var(--primary);padding:10px 14px;margin:0 0 20px;background:var(--surface);border-radius:0 12px 12px 0}.practice-intro p {color:var(--muted);font-size:15px;margin-top:6px}.practice-feedback {white-space:pre-wrap;font-size:15px;padding:14px;border:1px solid var(--border);border-radius:12px;margin:18px 0;background:var(--surface)}.practice-feedback.pass {border-color:var(--green);color:var(--green)}.practice-feedback.retry {border-color:var(--accent)}
