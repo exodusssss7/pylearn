@@ -1,7 +1,7 @@
-/* pylearn v0.4 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.5 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.4";
+const VERSION = "v0.5";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -20,7 +20,7 @@ function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(s
 let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0;
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=0.4");
+  pyWorker = new Worker("py-worker.js?v=0.5");
   pyWorker.onerror = () => {
     for (const id of Object.keys(pyPending)) { const p = pyPending[id]; clearTimeout(p.timer); p.resolve({ ok: false, out: "", err: "Python could not load. Check your connection and try again." }); delete pyPending[id]; }
     pyWorker.terminate(); pyWorker = null; pyReady = false;
@@ -80,6 +80,9 @@ const UNITS = [
   },
 ];
 
+UNITS.push({id:"u2",title:"Unit 2: Text & lists",sub:"10 lessons. From joining words to your own guest list.",lessons:UNIT2_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS];
+const TOTAL_LESSONS = ALL_LESSONS.length;
 const LESSON_L1 = FIRST_LESSON;
 
 /* ---------- views ---------- */
@@ -120,10 +123,13 @@ function bindNav() {
 function renderHome() {
   document.querySelectorAll(".confetti-layer").forEach(e => e.remove());
   navView = "home";
-  const u = UNITS[0];
+  const pathLessons = UNITS.flatMap(u=>u.lessons);
+  let pathIndex=0;
+  const sections=UNITS.map(u=>{
   const nodes = u.lessons.map((l, i) => {
     const done = state.done.includes(l.id);
-    const unlocked = i === 0 || state.done.includes(u.lessons[i - 1].id);
+    const absolute=pathIndex++;
+    const unlocked = absolute === 0 || state.done.includes(pathLessons[absolute - 1].id);
     const cls = done ? "done" : unlocked ? "current" : "locked";
     const icon = done ? "⭐" : unlocked ? l.icon : "🔒";
     const bubble = !done && unlocked ? '<div class="start-bubble">START</div>' : "";
@@ -134,20 +140,11 @@ function renderHome() {
     </div>`;
   }).join("");
 
-  app.innerHTML = `<div class="view">
-    ${topbarHTML()}
-    <div class="home-scroll">
-      <div class="unit-card">
-        <div class="unit-kicker">${u.title}</div>
-        <div class="unit-title">Python from zero</div>
-        <div class="unit-sub">${u.sub}</div>
-      </div>
-      <div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>Ready when you are.</p></div></div><div class="course-progress">${state.done.length} / 11 lessons complete · ${VERSION}</div>
-      <div class="path">${nodes}</div>
-    </div>
-    ${navHTML("home")}
-  </div>`;
+  return `<section class="unit-section" id="${u.id}"><div class="unit-card"><div class="unit-kicker">${u.title}</div><div class="unit-title">${u.id==='u1'?'Python from zero':'A place for everything'}</div><div class="unit-sub">${u.sub}</div></div><div class="course-progress">${u.lessons.filter(l=>state.done.includes(l.id)).length} / ${u.lessons.length} lessons complete</div><div class="path">${nodes}</div></section>`;
+  }).join('');
+  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div>${sections}</div>${navHTML("home")}</div>`;
 
+  $$("[data-unit]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.unit).scrollIntoView({behavior:"smooth",block:"start"}));
   $$(".node").forEach((n) => (n.onclick = () => {
     if (n.dataset.unlocked !== "true") { toast("Finish the previous lesson first, then this one opens."); return; }
     startLesson(n.dataset.lesson);
@@ -159,7 +156,7 @@ function renderHome() {
 let L = null; // active lesson session
 
 function startLesson(id = "l1") {
-  const lesson = id === "l1" ? LESSON_L1 : EXTRA_LESSONS.find(l => l.id === id);
+  const lesson = ALL_LESSONS.find(l => l.id === id);
   if (!lesson) return;
   L = { id, title: lesson.title, steps: lesson.steps, i: 0, earned: 0, mistakes: 0, stepMistakes: 0, awarded: new Set() };
   renderLessonShell();
@@ -254,7 +251,7 @@ function renderStep() {
     $("#run").onclick = async () => {
       const btn = $("#run");
       btn.disabled = true;
-      if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading"><span class="snake">🐍</span>Waking up Python…<div class="py-bar"><i></i></div></div>`;
+      if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading">${brickBuddy("thinking")}Waking up Python…<div class="py-bar"><i></i></div></div>`;
       const r = await runPython(s.code);
       if (!btn.isConnected) return;
       pyReady = !!pyWorker;
@@ -380,7 +377,7 @@ function renderStep() {
       const code = ed.value;
       if (!code.trim()) { toast("Type some code first 🙂"); return; }
       btn.disabled = true;
-      if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading"><span class="snake">🐍</span>Waking up Python…<div class="py-bar"><i></i></div></div>`;
+      if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading">${brickBuddy("thinking")}Waking up Python…<div class="py-bar"><i></i></div></div>`;
       const r = await runPython(code, s.rule);
       if (!btn.isConnected) return;
       pyReady = !!pyWorker;
@@ -401,7 +398,7 @@ function renderStep() {
 function friendlyErr(err) {
   if (!err) return "Something went wrong";
   const raw = err.replace(/^PythonError:\s*/i, "").split("\n").pop();
-  if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside if or for with four spaces.";
+  if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside a block such as if or for with four spaces.";
   if (/SyntaxError/.test(raw)) return "Python cannot read that line yet. Check matching straight quotes, closing parentheses, and the colon after if or for.";
   if (/NameError/.test(raw)) return "Python does not know that name. Text needs quotes. Variable names must match exactly. Use lowercase print.";
   if (/TypeError/.test(raw)) return "Those value types do not fit together. Try a comma in print to combine text and a number.";
@@ -435,7 +432,7 @@ function finishLesson() {
   app.innerHTML = `<div class="view">
     <div class="celebrate step-anim">
       <div class="buddy-finish">${brickBuddy("celebrate")}</div>
-      <h1>${firstTime && state.done.length === 11 ? "Unit complete!" : "Lesson complete!"}</h1>
+      <h1>${firstTime && state.done.length === TOTAL_LESSONS ? "All lessons complete!" : "Lesson complete!"}</h1>
       <p>You wrote real Python. That is the whole secret - tiny steps, done daily.</p>
       <div class="xp-pill">⚡ +${L.earned} XP</div>
       <button class="btn" id="done">Back to path</button>
@@ -496,7 +493,7 @@ function renderPlayground() {
   $("#pgrun").onclick = async () => {
     const btn = $("#pgrun");
     btn.disabled = true;
-    if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading"><span class="snake">🐍</span>Waking up Python… (first run takes a few seconds)<div class="py-bar"><i></i></div></div>`;
+    if (!pyReady) $("#pymsg").innerHTML = `<div class="py-loading">${brickBuddy("thinking")}Waking up Python… (first run takes a few seconds)<div class="py-bar"><i></i></div></div>`;
     const r = await runPython(ed.value);
     if (!btn.isConnected) return;
     pyReady = !!pyWorker;
@@ -524,7 +521,7 @@ function renderProfile() {
         <div class="stat-box"><div class="num" style="color:#ff9f43">🔥 ${state.streak}</div><div class="lbl">Day streak</div></div>
         <div class="stat-box"><div class="num" style="color:var(--accent)">⚡ ${state.xp}</div><div class="lbl">Total XP</div></div>
         <div class="stat-box"><div class="num" style="color:var(--green)">⭐ ${lessons}</div><div class="lbl">Lessons done</div></div>
-        <div class="stat-box"><div class="num" style="color:var(--primary)">🎯 1</div><div class="lbl">Unit</div></div>
+        <div class="stat-box"><div class="num" style="color:var(--primary)">🎯 ${UNITS.length}</div><div class="lbl">Units</div></div>
       </div>
       <div class="about-box">
         pylearn ${VERSION}<br>

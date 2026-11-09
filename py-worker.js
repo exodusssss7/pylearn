@@ -24,7 +24,7 @@ onmessage = async (e) => {
       const scope = pyodide.toPy({});
       let concept = null;
       if (rule) {
-        const validator = await fetch("concept-check.py?v=0.2").then(r => { if (!r.ok) throw Error("Checker unavailable"); return r.text(); });
+        const validator = await fetch("concept-check.py?v=0.5").then(r => { if (!r.ok) throw Error("Checker unavailable"); return r.text(); });
         scope.set("_source", code); scope.set("_rule", rule);
         await pyodide.runPythonAsync(validator, { globals: scope });
         const feedback = await pyodide.runPythonAsync("check_concept(_source, _rule)", { globals: scope });

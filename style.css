@@ -489,3 +489,7 @@ body {
 @media (prefers-reduced-motion:reduce) {.brick-buddy * {animation:none!important;transition:none!important}}
 
 .buddy-figure,.brick-buddy.ready .buddy-head,.brick-buddy.thinking .buddy-head,.brick-buddy.oops .buddy-head,.buddy-sparks {will-change:transform,opacity}
+.unit-section + .unit-section {margin-top:30px;padding-top:20px;border-top:1px solid var(--border)}
+.py-loading .brick-buddy {width:55px;height:59px}
+
+.unit-jumps {display:flex;gap:10px;flex-wrap:wrap;margin:0 0 20px}.unit-jumps .btn {min-height:44px}.unit-section {scroll-margin-top:80px}

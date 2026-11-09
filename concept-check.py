@@ -30,6 +30,66 @@ def check_concept(source, rule):
         has_print = lambda body: any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'print' for stmt in body for n in ast.walk(stmt))
         ok = any(has_print(n.body) and (rule != 'else' or bool(n.orelse) and has_print(n.orelse)) for n in branches)
         return '' if ok else ('Add an if with an indented print line.' if rule == 'if' else 'Use if and else, each with an indented print line. Line up else with if.')
+    # Unit 2: follow stored values by name, not by the sample's wording.
+    values = {t.id: st.value for st in tree.body if isinstance(st, ast.Assign) for t in st.targets if isinstance(t, ast.Name)}
+    def resolve(n, seen=()):
+        if isinstance(n, ast.Name) and n.id in values and n.id not in seen:
+            return resolve(values[n.id], seen + (n.id,))
+        return n
+    def is_text(n):
+        n = resolve(n)
+        return text(n) or isinstance(n, ast.BinOp) and isinstance(n.op, ast.Add) and is_text(n.left) and is_text(n.right)
+    lists = {name: val for name, val in values.items() if isinstance(val, ast.List)}
+    def list_name(n, minimum=0):
+        return isinstance(n, ast.Name) and n.id in lists and len(lists[n.id].elts) >= minimum and all(text(e) for e in lists[n.id].elts)
+    def has_call(body, name, arg_test=lambda n: True):
+        return any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == name and any(arg_test(a) for a in n.args) for st in body for n in ast.walk(st))
+    def is_len(n, test):
+        return isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'len' and len(n.args) == 1 and test(n.args[0])
+    def index(n, val, test):
+        return isinstance(n, ast.Subscript) and isinstance(n.slice, ast.Constant) and n.slice.value == val and test(n.value)
+    printed = [a for c in calls for a in c.args]
+    def result(ok, feedback): return '' if ok else feedback
+    if rule == 'join':
+        return result(any(isinstance(resolve(a), ast.BinOp) and isinstance(resolve(a).op, ast.Add) and is_text(resolve(a).left) and is_text(resolve(a).right) for a in printed), 'Join two strings with +, then print the result. Choose any nonempty words; add your own space inside quotes if needed.')
+    if rule == 'text_len':
+        return result(any(is_len(a, lambda v: isinstance(v, ast.Name) and text(resolve(v))) for a in printed), 'Store a nonempty string in a variable, then print(len(your_variable)). len counts the characters.')
+    if rule == 'text_index':
+        return result(any(index(a, 0, lambda v: isinstance(v, ast.Name) and text(resolve(v))) for a in printed), 'Store a nonempty string, then print its first character with your_variable[0]. Indices begin at 0.')
+    if rule == 'make_list':
+        return result(any(list_name(a, 2) for a in printed), 'Store at least two strings in a list with square brackets and commas, then print the list by its name.')
+    if rule == 'list_index':
+        picked = {a.value.id for a in printed if index(a, 1, lambda v: list_name(v, 2))}
+        return result(any(is_len(a, lambda v: isinstance(v, ast.Name) and v.id in picked) for a in printed), 'Print the second item with your_list[1], then print(len(your_list)) for that same list.')
+    if rule == 'list_change':
+        changed = {t.value.id for st in tree.body if isinstance(st, ast.Assign) and text(st.value) for t in st.targets if index(t, 0, lambda v: list_name(v, 2))}
+        return result(bool(changed & printed_names), 'Create a list of at least two strings. Replace its first item with your_list[0] = "new value", then print the whole list.')
+    appends = [n for n in nodes if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute) and n.func.attr == 'append' and list_name(n.func.value) and len(n.args) == 1 and text(n.args[0])]
+    if rule == 'list_append':
+        return result(any(n.func.value.id in printed_names for n in appends), 'Call your_list.append("new item") on its own line, then print that list. Do not assign append back to the list.')
+    list_loops = [n for n in tree.body if isinstance(n, ast.For) and list_name(n.iter, 2) and isinstance(n.target, ast.Name)]
+    if rule == 'list_loop':
+        return result(any(has_call(loop.body, 'print', lambda a: isinstance(a, ast.Name) and a.id == loop.target.id) for loop in list_loops), 'Loop directly over a list with at least two strings: for item in your_list:. Indent print(item) underneath.')
+    if rule == 'list_filter':
+        ok = False
+        for loop in list_loops:
+            for branch in loop.body:
+                if not isinstance(branch, ast.If): continue
+                t = branch.test
+                condition = isinstance(t, ast.Compare) and is_len(t.left, lambda a: isinstance(a, ast.Name) and a.id == loop.target.id) and len(t.ops) == 1 and isinstance(t.ops[0], ast.Gt) and isinstance(t.comparators[0], ast.Constant) and t.comparators[0].value == 3
+                long_name = any(len(e.value) > 3 for e in lists[loop.iter.id].elts)
+                ok |= condition and long_name and has_call(branch.body, 'print', lambda a: isinstance(a, ast.Name) and a.id == loop.target.id)
+        return result(ok, 'Inside your list loop, use if len(item) > 3:, then indent print(item) four more spaces. Include a name longer than three characters so you can see it work.')
+    if rule == 'guest_project':
+        ok = False
+        for loop in list_loops:
+            same = loop.iter.id
+            added = any(n.func.value.id == same for n in appends)
+            each = has_call(loop.body, 'print', lambda a: isinstance(a, ast.Name) and a.id == loop.target.id)
+            tail = tree.body[tree.body.index(loop) + 1:]
+            total = has_call(tail, 'print', lambda a: is_len(a, lambda v: isinstance(v, ast.Name) and v.id == same))
+            ok |= added and each and total
+        return result(ok, 'Start with at least two guest names, append one more, print each guest in a for loop, then print len(your_list) on an unindented line after the loop.')
     loops = [n for n in nodes if isinstance(n, ast.For) and isinstance(n.iter, ast.Call) and isinstance(n.iter.func, ast.Name) and n.iter.func.id == 'range']
     if rule == 'loop':
         loops = [loop for loop in loops if len(loop.iter.args) == 1 and isinstance(loop.iter.args[0], ast.Constant) and isinstance(loop.iter.args[0].value, int) and loop.iter.args[0].value > 1]
