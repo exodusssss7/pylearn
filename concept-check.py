@@ -137,6 +137,54 @@ def check_concept(source, rule):
                 breaks=any(isinstance(st,ast.If) and isinstance(st.test,ast.Compare) and name_is(st.test.left,name) and len(st.test.ops)==1 and isinstance(st.test.ops[0],ast.Eq) and const(st.test.comparators[0],2) and any(isinstance(b,ast.Break) for b in st.body) for st in loop.body)
             good |= start and update and show and breaks and (final if rule!='while_count' else True)
         return result(good, 'Check the starting value, while condition, indented print and one-step update. '+('Subtract 1 and print a message after the loop.' if down else 'Add 1 each turn.'+(' Use if count == 2: with break inside, and a final message after the loop.' if rule=='while_break' else '')))
+    # Unit 4: connect a custom function's definition, arguments and use.
+    definitions = [st for st in tree.body if isinstance(st,ast.FunctionDef)]
+    def custom_calls(body, function, arg_test=lambda a: True):
+        return [n for st in body for n in ast.walk(st) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id==function.name and arg_test(n.args)]
+    def outside(function):return [st for st in tree.body if st is not function and not isinstance(st,ast.FunctionDef)]
+    def uses_parameter(function, count):
+        params=[a.arg for a in function.args.args]
+        return len(params)==count and all(has_call(function.body,'print',lambda a:name_is(a,p)) for p in params)
+    if rule in ('function_define','function_reuse'):
+        required=2 if rule=='function_reuse' else 1
+        ok=any(not f.args.args and has_call(f.body,'print',text) and len(custom_calls(outside(f),f,lambda args:not args))>=required for f in definitions)
+        return result(ok,'Define a function with def name(): and an indented print. Then call that same name with () '+('twice' if required==2 else 'once')+' outside the definition.')
+    if rule in ('function_parameter','function_two'):
+        count=2 if rule=='function_two' else 1
+        ok=any(uses_parameter(f,count) and custom_calls(outside(f),f,lambda args:len(args)==count and all(text(a) for a in args)) for f in definitions)
+        return result(ok,'Define a function with '+str(count)+' parameter(s), print the parameter value(s) inside it, and call it with '+str(count)+' string argument(s). Do not put quotes around parameter names inside print.')
+    if rule=='function_return':
+        ok=False
+        for f in definitions:
+            if len(f.args.args)!=1:continue
+            p=f.args.args[0].arg
+            gives=any(isinstance(st,ast.Return) and isinstance(st.value,ast.BinOp) and isinstance(st.value.op,ast.Add) and name_is(st.value.left,p) and const(st.value.right,1) for st in f.body)
+            calls_f=custom_calls(outside(f),f,lambda args:len(args)==1 and number(args[0]))
+            returned_names={t.id for st in outside(f) if isinstance(st,ast.Assign) and isinstance(st.value,ast.Call) and isinstance(st.value.func,ast.Name) and st.value.func.id==f.name for t in st.targets if isinstance(t,ast.Name)}
+            shown=has_call(outside(f),'print',lambda a:isinstance(a,ast.Call) and isinstance(a.func,ast.Name) and a.func.id==f.name or isinstance(a,ast.Name) and a.id in returned_names)
+            ok |= gives and bool(calls_f) and shown
+        return result(ok,'Return parameter + 1 from your function. Call it with a number, then print the returned value, directly or through a result variable.')
+    if rule=='function_local':
+        ok=False
+        for f in definitions:
+            locals_={t.id for st in f.body if isinstance(st,ast.Assign) and text(st.value) for t in st.targets if isinstance(t,ast.Name)}
+            gives=any(isinstance(st,ast.Return) and isinstance(st.value,ast.Name) and st.value.id in locals_ for st in f.body)
+            shown=has_call(outside(f),'print',lambda a:isinstance(a,ast.Call) and isinstance(a.func,ast.Name) and a.func.id==f.name)
+            ok |= not f.args.args and gives and shown
+        return result(ok,'Inside a no-parameter function, store a string in a local variable and return that variable. Outside, print(your_function()).')
+    if rule in ('function_loop','function_project'):
+        ok=False
+        for f in definitions:
+            if len(f.args.args)!=1:continue
+            p=f.args.args[0].arg
+            if rule=='function_loop':gives=uses_parameter(f,1)
+            else:
+                gives=any(isinstance(st,ast.Return) and isinstance(st.value,ast.BinOp) and isinstance(st.value.op,ast.Add) and ((text(st.value.left) and name_is(st.value.right,p)) or (name_is(st.value.left,p) and text(st.value.right))) for st in f.body)
+            for loop in list_loops:
+                calls_f=custom_calls(loop.body,f,lambda args:len(args)==1 and name_is(args[0],loop.target.id))
+                shown=rule=='function_loop' or has_call(loop.body,'print',lambda a:isinstance(a,ast.Call) and isinstance(a.func,ast.Name) and a.func.id==f.name)
+                ok |= gives and bool(calls_f) and shown
+        return result(ok,'Define a one-parameter function, then loop over at least two strings and call it with the loop variable. '+('The function must return joined text; print the returned message inside the loop.' if rule=='function_project' else 'Print the received parameter inside the function.'))
     loops = [n for n in nodes if isinstance(n, ast.For) and isinstance(n.iter, ast.Call) and isinstance(n.iter.func, ast.Name) and n.iter.func.id == 'range']
     if rule == 'loop':
         loops = [loop for loop in loops if len(loop.iter.args) == 1 and isinstance(loop.iter.args[0], ast.Constant) and isinstance(loop.iter.args[0].value, int) and loop.iter.args[0].value > 1]

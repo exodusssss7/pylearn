@@ -82,7 +82,8 @@ const UNITS = [
 
 UNITS.push({id:"u2",title:"Unit 2: Text & lists",sub:"10 lessons. From joining words to your own guest list.",lessons:UNIT2_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
 UNITS.push({id:"u3",title:"Unit 3: Choices & while",heading:"Keep going, with a plan",sub:"11 lessons. Better conditions and loops that know when to stop.",lessons:UNIT3_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
-const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS];
+UNITS.push({id:"u4",title:"Unit 4: Your functions",heading:"Build your own tools",sub:"8 lessons. Reuse instructions, pass values in and return results.",lessons:UNIT4_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS];
 const TOTAL_LESSONS = ALL_LESSONS.length;
 const LESSON_L1 = FIRST_LESSON;
 
@@ -399,9 +400,12 @@ function renderStep() {
 function friendlyErr(err) {
   if (!err) return "Something went wrong";
   const raw = err.replace(/^PythonError:\s*/i, "").split("\n").pop();
-  if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside a block such as if or for with four spaces.";
-  if (/SyntaxError/.test(raw)) return "Python cannot read that line yet. Check matching straight quotes, closing parentheses, and the colon after if or for.";
-  if (/NameError/.test(raw)) return "Python does not know that name. Text needs quotes. Variable names must match exactly. Use lowercase print.";
+  if (/TypeError/.test(raw) && /argument/.test(raw)) return "The function call needs the right number of values. Match the arguments in the call to the parameters in its definition. " + raw;
+  if (/IndexError/.test(raw)) return "That position does not exist. Indices start at 0; the last valid index is one less than the length.";
+  if (/ZeroDivisionError/.test(raw)) return "Python cannot divide by zero. Choose a nonzero divisor.";
+  if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside a block such as if, for, while or def with four more spaces.";
+  if (/SyntaxError/.test(raw)) return "Python cannot read that line yet. Check matching straight quotes, closing parentheses, and the colon after a block header such as if, for, while or def.";
+  if (/NameError/.test(raw)) return "Python does not know that name. Text needs quotes. Variable and function names must match exactly. Use lowercase print.";
   if (/TypeError/.test(raw)) return "Those value types do not fit together. Try a comma in print to combine text and a number.";
   return raw;
 }
