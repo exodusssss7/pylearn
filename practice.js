@@ -84,7 +84,7 @@ function renderPractice(index = practiceIndex) {
     <div class="step-prompt">${card.prompt}</div>
     <div class="editor-wrap"><div class="code-head"><span class="fname">practice.py</span></div><textarea id="practice-editor" class="editor" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(card.starter)}</textarea></div>
     <div class="pg-actions"><button class="btn run-btn" id="practice-run">Run & check</button><button class="btn ghost" id="practice-hint">Hint</button></div>
-    <div id="practice-help" class="practice-feedback" hidden></div><div id="practice-output"></div>
+    <div id="practice-buddy"></div><div id="practice-help" class="practice-feedback" hidden></div><div id="practice-output"></div>
   </div>${navHTML('play')}</div>`;
   bindNav();
   $('#skill').onchange = e => renderPractice(+e.target.value);
@@ -94,7 +94,7 @@ function renderPractice(index = practiceIndex) {
   $('#practice-run').onclick = async () => {
     const btn=$('#practice-run'), ed=$('#practice-editor'), help=$('#practice-help');
     if (!ed.value.trim()) { help.hidden=false;help.textContent='Write a little code first, or tap Hint for an example.';return; }
-    btn.disabled=true;btn.textContent='Running...';
+    btn.disabled=true;btn.textContent='Running...';$('#practice-buddy').innerHTML=brickBuddy('thinking');
     const result=await runPython(ed.value,card.rule);
     if (!btn.isConnected) return;
     pyReady=!!pyWorker;
@@ -103,6 +103,6 @@ function renderPractice(index = practiceIndex) {
     help.hidden=false;help.className='practice-feedback '+(ok?'pass':'retry');
     help.textContent=ok?'You got the idea! '+card.why:result.ok?result.concept?.feedback||'Try the hint.':friendlyErr(result.err);
     ed.blur();help.scrollIntoView({behavior:'smooth',block:'center'});
-    playSound(ok?'correct':'retry');btn.disabled=false;btn.textContent='Run & check';
+    playSound(ok?'correct':'retry');$('#practice-buddy').innerHTML=brickBuddy(ok?(correctCombo>=3?'combo':'happy'):'oops');btn.disabled=false;btn.textContent='Run & check';
   };
 }

@@ -1,7 +1,7 @@
-/* pylearn v0.3 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.4 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.3";
+const VERSION = "v0.4";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -20,7 +20,7 @@ function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(s
 let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0;
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=0.3");
+  pyWorker = new Worker("py-worker.js?v=0.4");
   pyWorker.onerror = () => {
     for (const id of Object.keys(pyPending)) { const p = pyPending[id]; clearTimeout(p.timer); p.resolve({ ok: false, out: "", err: "Python could not load. Check your connection and try again." }); delete pyPending[id]; }
     pyWorker.terminate(); pyWorker = null; pyReady = false;
@@ -142,7 +142,7 @@ function renderHome() {
         <div class="unit-title">Python from zero</div>
         <div class="unit-sub">${u.sub}</div>
       </div>
-      <div class="course-progress">${state.done.length} / 11 lessons complete · ${VERSION}</div>
+      <div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>Ready when you are.</p></div></div><div class="course-progress">${state.done.length} / 11 lessons complete · ${VERSION}</div>
       <div class="path">${nodes}</div>
     </div>
     ${navHTML("home")}
@@ -198,7 +198,7 @@ function confirmQuit() {
 
 function setProgress() {
   const pct = Math.round((L.i / L.steps.length) * 100);
-  $("#pfill").style.width = pct + "%";
+  $("#pfill").style.transform = `scaleX(${pct / 100})`;
 }
 
 function stepHead(s) {
@@ -216,9 +216,9 @@ function showSheet(good, why, onContinue) {
   playSound(good ? "correct" : "retry");
   const sheet = $("#sheet");
   sheet.className = "sheet " + (good ? "good" : "bad");
-  sheet.innerHTML = `<div class="sheet-title">${good ? "✅ Nice!" : "❌ Not quite"}</div>
+  sheet.innerHTML = `<div class="buddy-feedback">${brickBuddy(good ? (correctCombo >= 3 ? "combo" : "happy") : "oops")}<div class="buddy-feedback-copy"><div class="sheet-title">${good ? (correctCombo >= 3 ? correctCombo + " in a row!" : "Nice!") : "Let's try again"}</div>
     <div class="sheet-why">${esc(why || "+10 XP")}</div>
-    <button class="btn ${good ? "green" : ""}" id="sheetBtn">${good ? "Continue" : "Got it"}</button>`;
+    </div></div><button class="btn ${good ? "green" : ""}" id="sheetBtn">${good ? "Continue" : "Got it"}</button>`;
   requestAnimationFrame(() => sheet.classList.add("show"));
   $("#sheetBtn").onclick = () => {
     sheet.classList.remove("show");
@@ -434,22 +434,23 @@ function finishLesson() {
   confetti();
   app.innerHTML = `<div class="view">
     <div class="celebrate step-anim">
-      <div class="trophy">🏆</div>
+      <div class="buddy-finish">${brickBuddy("celebrate")}</div>
       <h1>${firstTime && state.done.length === 11 ? "Unit complete!" : "Lesson complete!"}</h1>
       <p>You wrote real Python. That is the whole secret - tiny steps, done daily.</p>
       <div class="xp-pill">⚡ +${L.earned} XP</div>
       <button class="btn" id="done">Back to path</button>
     </div>
   </div>`;
-  $("#pfill") && ($("#pfill").style.width = "100%");
+  $("#pfill") && ($("#pfill").style.transform = "scaleX(1)");
   $("#done").onclick = renderHome;
 }
 
 function confetti() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const layer = document.createElement("div");
   layer.className = "confetti-layer";
   const colors = ["#6e7bff", "#ffd43b", "#3ecf8e", "#ff6b6b", "#9d6bff", "#7be3b5"];
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < 36; i++) {
     const c = document.createElement("div");
     c.className = "confetti";
     c.style.left = Math.random() * 100 + "%";
