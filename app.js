@@ -1,7 +1,7 @@
-/* pylearn v0.7 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.8 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.7";
+const VERSION = "v0.8";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -20,7 +20,7 @@ function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(s
 let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0;
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=0.5");
+  pyWorker = new Worker("py-worker.js?v=0.8");
   pyWorker.onerror = () => {
     for (const id of Object.keys(pyPending)) { const p = pyPending[id]; clearTimeout(p.timer); p.resolve({ ok: false, out: "", err: "Python could not load. Check your connection and try again." }); delete pyPending[id]; }
     pyWorker.terminate(); pyWorker = null; pyReady = false;
@@ -78,13 +78,17 @@ function todayKey() { const d = new Date(); return d.getFullYear() + "-" + (d.ge
 
 /* syntax coloring - single pass so inserted markup is never re-matched */
 function hi(code) {
-  const re = /("[^"]*"|'[^']*'|\b(?:print|input|len|range|int|str|float)\b|\b(?:for|in|if|else|elif|while|def|return|and|or|not)\b|\b\d+\b)/g;
+  const re = /("[^"]*"|'[^']*'|\b(?:print|input|open|len|range|int|str|float)\b|\b(?:for|in|if|else|elif|while|def|return|and|or|not|with|as|try|except|finally|class)\b|\b\d+\b)/g;
   return esc(code).replace(re, (m) => {
     if (m[0] === '"' || m[0] === "'") return `<span class="tok-str">${m}</span>`;
     if (/^\d+$/.test(m)) return `<span class="tok-num">${m}</span>`;
-    if (/^(print|input|len|range|int|str|float)$/.test(m)) return `<span class="tok-fn">${m}</span>`;
+    if (/^(print|input|open|len|range|int|str|float)$/.test(m)) return `<span class="tok-fn">${m}</span>`;
     return `<span class="tok-kw">${m}</span>`;
   });
+}
+
+function exampleCode(code) {
+  return `<pre class="numbered-code">${code.split("\n").map((line,i)=>`<span class="code-line" data-line="${i+1}">${hi(line) || " "}</span>`).join("")}</pre><div class="code-note">Numbers are line guides, not code. Long lines may wrap under the same number.</div>`;
 }
 
 /* ---------- content ---------- */
@@ -103,7 +107,10 @@ UNITS.push({id:"u3",title:"Unit 3: Choices & while",heading:"Keep going, with a 
 UNITS.push({id:"u4",title:"Unit 4: Your functions",heading:"Build your own tools",sub:"8 lessons. Reuse instructions, pass values in and return results.",lessons:UNIT4_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
 UNITS.push({id:"u5",title:"Unit 5: Dictionaries",heading:"Give every value a label",sub:"8 lessons. Keys, values and your own profile card.",lessons:UNIT5_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
 UNITS.push({id:"u6",title:"Unit 6: Input & numbers",heading:"Let your program listen",sub:"9 lessons. Real answers, number conversions and a snack-bill project.",lessons:UNIT6_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
-const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS,...UNIT5_LESSONS,...UNIT6_LESSONS];
+UNITS.push({id:"u7",title:"Unit 7: Practice files",heading:"Write it, read it, build on it",sub:"7 lessons. Real text files in a fresh temporary workspace each Run.",lessons:UNIT7_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+UNITS.push({id:"u8",title:"Unit 8: Handle errors",heading:"Give problems a useful reply",sub:"7 lessons. Targeted recovery, success-only work and cleanup.",lessons:UNIT8_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+UNITS.push({id:"u9",title:"Unit 9: Your classes",heading:"Make objects with their own data",sub:"8 lessons. From a blueprint to two independent learning buddies.",lessons:UNIT9_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS,...UNIT5_LESSONS,...UNIT6_LESSONS,...UNIT7_LESSONS,...UNIT8_LESSONS,...UNIT9_LESSONS];
 const TOTAL_LESSONS = ALL_LESSONS.length;
 const LESSON_L1 = FIRST_LESSON;
 
@@ -255,7 +262,7 @@ function renderStep() {
   if (s.t === "info") {
     body.innerHTML = `<div class="step-anim">${stepHead(s)}
       <div class="step-prompt">${esc(s.body)}</div>
-      <div class="code-card"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div><pre>${hi(s.code)}</pre></div>
+      <div class="code-card"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div>${exampleCode(s.code)}</div>
       ${s.inputs ? `<div class="sample-answers">Sample answers, in order: ${s.inputs.map(a=>esc(a)).join(", ")}</div>` : ""}
       ${consoleHTML(s.out)}
     </div>`;
@@ -266,7 +273,7 @@ function renderStep() {
   if (s.t === "run") {
     body.innerHTML = `<div class="step-anim">${stepHead(s)}
       <div class="step-prompt">${esc(s.prompt)}</div>
-      <div class="code-card"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div><pre>${hi(s.code)}</pre></div>
+      <div class="code-card"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div>${exampleCode(s.code)}</div>
       <div id="pymsg"></div>
       <div id="cout"></div>
     </div>`;
@@ -424,13 +431,15 @@ function friendlyErr(err) {
   if (!err) return "Something went wrong";
   const raw = err.replace(/^PythonError:\s*/i, "").split("\n").pop();
   if (/TypeError/.test(raw) && /argument/.test(raw)) return "The function call needs the right number of values. Match the arguments in the call to the parameters in its definition. " + raw;
+  if (/FileNotFoundError/.test(raw)) return "That file is missing. Check the filename and create it before reading. Practice files reset each Run; write and read in the same program, or handle FileNotFoundError.";
+  if (/AttributeError/.test(raw)) return "That object does not have the requested attribute or method. Check its spelling and case, and whether __init__ stored it with self. " + raw;
   if (/EOFError/.test(raw)) return "The input answers ran out. Run again and provide one line for each input() call, including repeated calls in a loop.";
   if (/ValueError/.test(raw)) return "That text cannot be converted to the requested number. Use whole-number text such as 12 for int, or decimal text such as 2.5 for float.";
   if (/KeyError/.test(raw)) return "That dictionary key is missing. Match its spelling and case, check with in, or use .get with a fallback.";
   if (/IndexError/.test(raw)) return "That position does not exist. Indices start at 0; the last valid index is one less than the length.";
   if (/ZeroDivisionError/.test(raw)) return "Python cannot divide by zero. Choose a nonzero divisor.";
-  if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside a block such as if, for, while or def with four more spaces.";
-  if (/SyntaxError/.test(raw)) return "Python cannot read that line yet. Check matching straight quotes, closing parentheses, and the colon after a block header such as if, for, while or def.";
+  if (/IndentationError/.test(raw)) return "The spaces need a fix. Start the line inside a block such as if, for, while, def, with, try or class with four more spaces.";
+  if (/SyntaxError/.test(raw)) return "Python cannot read that line yet. Check matching straight quotes, closing parentheses, and the colon after a block header such as if, for, while, def, with, try or class.";
   if (/NameError/.test(raw)) return "Python does not know that name. Text needs quotes. Variable and function names must match exactly. Use lowercase print.";
   if (/TypeError/.test(raw)) return "Those value types do not fit together. Try a comma in print to combine text and a number.";
   return raw;
@@ -498,9 +507,9 @@ function renderPlayground() {
   app.innerHTML = `<div class="view">
     ${topbarHTML()}
     <div class="pad">
-      <div class="pg-title">Playground 🛝</div>
+      <div class="pg-title">Playground 🛝</div><p class="pg-file-note">Practice files are temporary: every Run starts fresh. Write and read within the same program. No phone files are accessed or saved.</p>
       <button class="btn ghost small" onclick="renderPractice()" style="margin:12px 0">Guided practice</button>
-      <div class="pg-sub">Try Python here. Text output only in this preview; input and graphics are not supported.</div>
+      <div class="pg-sub">Real Python with text output. input() uses an answer sheet before Run; graphics and package installation are not supported.</div>
       <div class="editor-wrap"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">playground.py</span></div><textarea class="editor" id="pged" spellcheck="false" autocomplete="off" autocapitalize="off" style="min-height:170px">name = "you"\nfor i in range(3):\n    print("Hi " + name + "!", i + 1)</textarea></div>
       <div class="pg-actions">
         <button class="btn run-btn" id="pgrun">▶ Run</button>

@@ -1,4 +1,4 @@
-# pylearn v0.7
+# pylearn v0.8
 
 Python from zero in small, interactive steps.
 
@@ -8,7 +8,7 @@ Python from zero in small, interactive steps.
 Every lesson begins with a plain-language concept introduction and a symbol guide. Lessons include common mistakes, worked examples, live Python runs, output prediction, code blanks, tap-to-order code and typing challenges. Complete lessons in order or replay completed lessons. Progress, XP and day streak are saved in this browser.
 
 ## Limits
-Six units are available, not a complete Python course. Typed challenges check Python syntax-tree structure, not exact message wording. Different messages, spelling and capitalization inside strings are accepted. Python instruction names and variable references still follow Python case rules. These checks are educational, not a proof that every possible solution is correct. Hints are available after mistakes; automatic easier replacement exercises are not implemented. Text-output playground only: no graphics or package installation. input() reads from a local answer sheet before execution, not a live terminal dialogue. Python downloads from jsDelivr on first use, so internet is required. Clearing browser storage removes progress. There are no accounts, cloud sync, backend or paid services. Not a secure sandbox for other people's untrusted code.
+Nine units are available, not a complete Python course. Typed challenges check Python syntax-tree structure, not exact message wording. Different messages, spelling and capitalization inside strings are accepted. Python instruction names and variable references still follow Python case rules. These checks are educational, not a proof that every possible solution is correct. Hints are available after mistakes; automatic easier replacement exercises are not implemented. Files use a real but temporary Python filesystem, reset on each Run. They are not saved to the device or available for download. Text-output playground only: no graphics or package installation. input() reads from a local answer sheet before execution, not a live terminal dialogue. Python downloads from jsDelivr on first use, so internet is required. Clearing browser storage removes progress. There are no accounts, cloud sync, backend or paid services. Not a secure sandbox for other people's untrusted code.
 
 ## Built with
 Plain HTML, CSS and JavaScript; Pyodide 0.29.0 in a Web Worker; Nunito from Google Fonts. Hosted on GitHub Pages.
@@ -17,7 +17,7 @@ Plain HTML, CSS and JavaScript; Pyodide 0.29.0 in a Web Worker; Nunito from Goog
 MIT for the app code. Pyodide and fonts retain their own licenses.
 
 ## Practice and audio
-Fifty-two guided skill cards plus a free-code playground. Mistakes get specific guidance for quotes, parentheses, names and indentation. Correct answers in a row raise the same chime along a major scale, capped at one octave to avoid shrill pitches. A wrong answer resets it; the streak is per session. Tap, retry and completion keep separate effects. Sound can be muted in Profile; the setting stays on this device. Effects: Kenney Interface Sounds, CC0, downloaded from https://opengameart.org/content/interface-sounds . Original license is included in audio/LICENSE.txt. These are pre-produced interface effects, not claimed to be field recordings.
+Seventy-four guided skill cards plus a free-code playground. Mistakes get specific guidance for quotes, parentheses, names and indentation. Correct answers in a row raise the same chime along a major scale, capped at one octave to avoid shrill pitches. A wrong answer resets it; the streak is per session. Tap, retry and completion keep separate effects. Sound can be muted in Profile; the setting stays on this device. Effects: Kenney Interface Sounds, CC0, downloaded from https://opengameart.org/content/interface-sounds . Original license is included in audio/LICENSE.txt. These are pre-produced interface effects, not claimed to be field recordings.
 
 ## Block companion
 Original pylearn SVG/CSS artwork reacts to correct answers, retries, combos, code runs and completion. Character motion uses transform and opacity, follows the display refresh rate, and respects reduced-motion preferences. Actual frame rate depends on the device. No LEGO artwork, branding or affiliation.
@@ -35,4 +35,13 @@ Original pylearn SVG/CSS artwork reacts to correct answers, retries, combos, cod
 8 lessons: dictionaries, key lookup, updating entries, adding keys, membership checks, get with a fallback, looping over keys, and a profile-card project. Dictionary entries use string keys and values in these first exercises.
 
 ## Unit 6
-9 lessons: real input, prompts, digit text versus numbers, int, float, str, multiplication, division, and a snack-bill project. Typed input code opens an answer sheet; each line is consumed by a real Python input() call. Example runs supply named sample answers. Answers are not persisted or sent to a backend. Invalid conversions and missing input get specific feedback; exception handling is not yet taught.
+9 lessons: real input, prompts, digit text versus numbers, int, float, str, multiplication, division, and a snack-bill project. Typed input code opens an answer sheet; each line is consumed by a real Python input() call. Example runs supply named sample answers. Answers are not persisted or sent to a backend. Invalid conversions and missing input get specific feedback; targeted exception handling follows in Unit 8.
+
+## Unit 7
+7 lessons: writing and reading text files with with/open, newline escapes, append mode, line iteration with print(end=""), counting lines, and a two-entry notebook project. Each Run starts with an empty temporary Python workspace, not device storage.
+
+## Unit 8
+7 lessons: ValueError, continuing after recovery, try/except/else, finally, FileNotFoundError, separate handlers for conversion and zero division, and a safer number-reader project. Input is still supplied before execution rather than through a live terminal.
+
+## Unit 9
+8 lessons: classes and instances, instance attributes, methods and self, __init__, method parameters, return values, separate object state, and a two-buddy project. These are first class steps, not a complete object-oriented programming course.

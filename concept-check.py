@@ -2,6 +2,8 @@
 import ast
 
 def check_concept(source, rule):
+    if rule.startswith(("file_", "error_", "class_")):
+        return check_v08(source, rule)
     tree = ast.parse(source)
     nodes = list(ast.walk(tree))
     calls = [n for n in nodes if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == 'print']
@@ -286,3 +288,150 @@ def check_concept(source, rule):
         final = any(isinstance(st, ast.Expr) and isinstance(st.value, ast.Call) and isinstance(st.value.func, ast.Name) and st.value.func.id == 'print' and any(text(a) for a in st.value.args) for st in tree.body)
         return '' if ok and final else 'Use range(3, 0, -1) for the countdown, then add a final print message outside the loop. Any final message is fine.'
     return 'This exercise could not be checked. Try another practice card.'
+
+def check_v08(source, rule):
+    tree = ast.parse(source)
+    nodes = list(ast.walk(tree))
+    def name(n, v):return isinstance(n,ast.Name) and n.id==v
+    def string(n):return isinstance(n,ast.Constant) and isinstance(n.value,str) and bool(n.value.strip())
+    def number(n):return isinstance(n,ast.Constant) and isinstance(n.value,(int,float)) and not isinstance(n.value,bool)
+    def call(n, f):return isinstance(n,ast.Call) and name(n.func,f)
+    def walk(body):return [n for st in body for n in ast.walk(st)]
+    def printed(body):return [a for n in walk(body) if call(n,'print') for a in n.args]
+    def shows(body,pred):return any(pred(a) for a in printed(body))
+    def attr(n, obj, key):return isinstance(n,ast.Attribute) and name(n.value,obj) and n.attr==key
+    def ret(ok, message):return '' if ok else message
+    if rule.startswith('file_'):
+        records=[]
+        for idx,st in enumerate(tree.body):
+            if not isinstance(st,ast.With):continue
+            for item in st.items:
+                c=item.context_expr
+                if not (call(c,'open') and len(c.args)==2 and string(c.args[0]) and string(c.args[1]) and isinstance(item.optional_vars,ast.Name)):continue
+                path,mode=c.args[0].value,c.args[1].value;var=item.optional_vars.id
+                writes=[n.args[0].value for n in walk(st.body) if isinstance(n,ast.Call) and attr(n.func,var,'write') and len(n.args)==1 and string(n.args[0])]
+                reads=[n for n in walk(st.body) if isinstance(n,ast.Call) and attr(n.func,var,'read') and not n.args]
+                values={t.id for s in st.body if isinstance(s,ast.Assign) and isinstance(s.value,ast.Call) and attr(s.value.func,var,'read') for t in s.targets if isinstance(t,ast.Name)}
+                shown=bool(reads) and (shows(st.body,lambda n:isinstance(n,ast.Call) and attr(n.func,var,'read')) or shows(tree.body[idx+1:],lambda n:isinstance(n,ast.Name) and n.id in values))
+                loops=[n for n in st.body if isinstance(n,ast.For) and name(n.iter,var) and isinstance(n.target,ast.Name)]
+                loop_shows=any(any(call(c,'print') and any(name(a,l.target.id) for a in c.args) and any(k.arg=='end' and isinstance(k.value,ast.Constant) and k.value.value=='' for k in c.keywords) for c in walk(l.body)) for l in loops)
+                records.append(dict(idx=idx,path=path,mode=mode,writes=writes,shown=shown,loops=loops,loop_shows=loop_shows))
+        good=False
+        for w in records:
+            if w['mode']!='w' or not w['writes']:continue
+            after=[r for r in records if r['idx']>w['idx'] and r['path']==w['path']]
+            readers=[r for r in after if r['mode']=='r']
+            if rule=='file_write':good |= shows(tree.body[w['idx']+1:],string)
+            elif rule=='file_read':good |= any(r['shown'] for r in readers)
+            elif rule=='file_newline':good |= any('\n' in s.strip('\n') for s in w['writes']) and any(r['shown'] for r in readers)
+            elif rule in ('file_append','file_project'):
+                for a in after:
+                    if a['mode']!='a' or not a['writes']:continue
+                    rr=[r for r in readers if r['idx']>a['idx']]
+                    if rule=='file_append':good |= any(r['shown'] for r in rr)
+                    else:good |= all(any('\n' in s for s in row['writes']) for row in (w,a)) and any(r['loop_shows'] for r in rr)
+            elif rule=='file_loop':good |= any('\n' in s.strip('\n') for s in w['writes']) and any(r['loop_shows'] for r in readers)
+            elif rule=='file_count':
+                for r in readers:
+                    for l in r['loops']:
+                        for st in l.body:
+                            if not (isinstance(st,ast.Assign) and isinstance(st.value,ast.BinOp) and isinstance(st.value.op,ast.Add) and isinstance(st.value.left,ast.Name) and isinstance(st.value.right,ast.Constant) and st.value.right.value==1):continue
+                            count=st.value.left.id
+                            update=any(name(t,count) for t in st.targets)
+                            initial=any(isinstance(s,ast.Assign) and any(name(t,count) for t in s.targets) and isinstance(s.value,ast.Constant) and s.value.value==0 for s in tree.body[:r['idx']])
+                            show=shows(tree.body[r['idx']+1:],lambda n:name(n,count))
+                            good |= update and initial and show and any('\n' in s.strip('\n') for s in w['writes'])
+        message={'file_write':'Open a practice filename with with and "w", write nonempty text inside, then print a message outside.', 'file_read':'Write text with "w", reopen the same filename with "r", and print its read() content.', 'file_newline':'Write two words separated by \\n, then reopen that same file with "r" and print its read() content.', 'file_append':'Use separate with blocks for "w", then "a", then "r" on the same filename. Write in both writing blocks and print the read content.', 'file_loop':'Write at least two lines, reopen the same file with "r", then for line in file: and print(line, end="").', 'file_count':'Write two lines, reopen the file, and loop over it. Start a counter at 0, add 1 inside the loop, then print the final counter outside.', 'file_project':'Write a line with "w", append a line with "a", then loop over the same file in "r". Include \\n in both entries and print each entry with end="".'}
+        return ret(good,message[rule])
+    if rule.startswith('error_'):
+        good=False
+        for t in tree.body:
+            if not isinstance(t,ast.Try):continue
+            handlers={h.type.id:h for h in t.handlers if isinstance(h.type,ast.Name)}
+            handled=lambda kind:kind in handlers and shows(handlers[kind].body,string)
+            conversions=[s for s in t.body if isinstance(s,ast.Assign) and call(s.value,'int') and len(s.value.args)==1]
+            for conv in conversions:
+                targets=[v.id for v in conv.targets if isinstance(v,ast.Name)]
+                arg=conv.value.args[0]
+                invalid=False;valid=False
+                if string(arg):
+                    try:int(arg.value);valid=True
+                    except ValueError:invalid=True
+                uses_number=shows(t.body,lambda n:isinstance(n,ast.Name) and n.id in targets)
+                plus=shows(t.orelse,lambda n:isinstance(n,ast.BinOp) and isinstance(n.op,ast.Add) and isinstance(n.left,ast.Name) and n.left.id in targets and isinstance(n.right,ast.Constant) and n.right.value==1)
+                if rule=='error_value':good |= invalid and handled('ValueError') and uses_number
+                elif rule=='error_continue':good |= invalid and handled('ValueError') and shows(tree.body[tree.body.index(t)+1:],string)
+                elif rule=='error_else':good |= valid and handled('ValueError') and plus
+                elif rule=='error_finally':good |= invalid and handled('ValueError') and shows(t.finalbody,string)
+                elif rule=='error_multiple':
+                    divides=shows(t.body,lambda n:isinstance(n,ast.BinOp) and isinstance(n.op,ast.Div) and isinstance(n.left,ast.Constant) and n.left.value==12 and isinstance(n.right,ast.Name) and n.right.id in targets)
+                    good |= call(arg,'input') and divides and handled('ValueError') and handled('ZeroDivisionError')
+                elif rule=='error_project':good |= call(arg,'input') and handled('ValueError') and plus and shows(t.finalbody,string)
+            if rule=='error_file':
+                for st in t.body:
+                    if not isinstance(st,ast.With):continue
+                    for i in st.items:
+                        c=i.context_expr
+                        if not (call(c,'open') and len(c.args)==2 and string(c.args[0]) and isinstance(c.args[1],ast.Constant) and c.args[1].value=='r' and isinstance(i.optional_vars,ast.Name)):continue
+                        var=i.optional_vars.id
+                        def read(n):return isinstance(n,ast.Call) and attr(n.func,var,'read')
+                        vals={v.id for s in st.body if isinstance(s,ast.Assign) and read(s.value) for v in s.targets if isinstance(v,ast.Name)}
+                        good |= handled('FileNotFoundError') and (shows(st.body,read) or shows(t.body,lambda n:isinstance(n,ast.Name) and n.id in vals))
+        hints={'error_value':'Convert invalid whole-number text in try and print the converted variable. Add except ValueError with a helpful print.', 'error_continue':'Convert invalid text in try, handle ValueError, then print a separate message outside try/except.', 'error_else':'Convert valid text with int in try. Handle ValueError and print the converted number + 1 in else.', 'error_finally':'Use try for an invalid int conversion, except ValueError for recovery, and finally for a printed cleanup message.', 'error_file':'Try opening a missing file with "r", read and print it. Add except FileNotFoundError with a message.', 'error_multiple':'Read int(input()) inside try, print 12 / that number, and handle ValueError and ZeroDivisionError in separate except blocks.', 'error_project':'Read int(input()) in try. Handle ValueError, print the converted number + 1 in else, and a completion message in finally.'}
+        return ret(good,hints[rule])
+    if rule.startswith('class_'):
+        good=False
+        for cls in [n for n in tree.body if isinstance(n,ast.ClassDef)]:
+            methods=[n for n in cls.body if isinstance(n,ast.FunctionDef)]
+            defaults={target.id:s.value for s in cls.body if isinstance(s,ast.Assign) and string(s.value) for target in s.targets if isinstance(target,ast.Name)}
+            instances={target.id:s.value for s in tree.body if isinstance(s,ast.Assign) and call(s.value,cls.name) for target in s.targets if isinstance(target,ast.Name)}
+            def invoked(obj,method,argc):return [n for n in walk(tree.body) if isinstance(n,ast.Call) and attr(n.func,obj,method) and len(n.args)==argc]
+            def printed_attr(obj,key):return shows(tree.body,lambda n:attr(n,obj,key))
+            if rule in ('class_make','class_attribute','class_method'):
+                for key in defaults:
+                    objs=[o for o,c in instances.items() if not c.args]
+                    if rule=='class_make':good |= any(printed_attr(o,key) for o in objs)
+                    if rule=='class_attribute':
+                        for o in objs:
+                            change=any(isinstance(s,ast.Assign) and string(s.value) and s.value.value!=defaults[key].value and any(attr(t,o,key) for t in s.targets) for s in tree.body)
+                            good |= change and printed_attr(o,key) and any(p!=o and printed_attr(p,key) for p in objs)
+                    if rule=='class_method':
+                        for m in methods:
+                            if len(m.args.args)!=1:continue
+                            self_=m.args.args[0].arg
+                            good |= shows(m.body,lambda n:attr(n,self_,key)) and any(invoked(o,m.name,0) for o in objs)
+            for init in methods:
+                if init.name!='__init__' or len(init.args.args)!=2:continue
+                self_,param=[a.arg for a in init.args.args]
+                keys=[v.attr for s in init.body if isinstance(s,ast.Assign) and name(s.value,param) for v in s.targets if isinstance(v,ast.Attribute) and name(v.value,self_)]
+                for key in keys:
+                    objs={o:c.args[0] for o,c in instances.items() if len(c.args)==1}
+                    text_objs={o:a for o,a in objs.items() if string(a)}
+                    if rule=='class_init':good |= any(printed_attr(o,key) for o in text_objs)
+                    updaters=[];returners=[];incrementers=[]
+                    for m in methods:
+                        if m.name=='__init__' or not m.args.args:continue
+                        me=m.args.args[0].arg
+                        if len(m.args.args)==2:
+                            p=m.args.args[1].arg
+                            if any(isinstance(s,ast.Assign) and name(s.value,p) and any(attr(v,me,key) for v in s.targets) for s in m.body):updaters.append(m)
+                        if len(m.args.args)==1:
+                            if any(isinstance(s,ast.Return) and isinstance(s.value,ast.BinOp) and isinstance(s.value.op,ast.Add) and ((string(s.value.left) and attr(s.value.right,me,key)) or (string(s.value.right) and attr(s.value.left,me,key))) for s in m.body):returners.append(m)
+                            if any(isinstance(s,ast.Assign) and any(attr(v,me,key) for v in s.targets) and isinstance(s.value,ast.BinOp) and isinstance(s.value.op,ast.Add) and attr(s.value.left,me,key) and isinstance(s.value.right,ast.Constant) and s.value.right.value==1 for s in m.body):incrementers.append(m)
+                    def greeting_shown(o):return any(shows(tree.body,lambda n:isinstance(n,ast.Call) and attr(n.func,o,m.name) and not n.args) for m in returners)
+                    def updated(o):return any(any(string(c.args[0]) and c.args[0].value!=text_objs[o].value for c in invoked(o,m.name,1)) for m in updaters)
+                    if rule=='class_update':good |= any(updated(o) and printed_attr(o,key) for o in text_objs)
+                    if rule=='class_return':good |= any(greeting_shown(o) for o in text_objs)
+                    if rule=='class_two':
+                        for o,a in objs.items():
+                            if not number(a):continue
+                            for m in incrementers:
+                                if not invoked(o,m.name,0):continue
+                                good |= printed_attr(o,key) and any(p!=o and number(b) and b.value!=a.value and printed_attr(p,key) and not invoked(p,m.name,0) for p,b in objs.items())
+                    if rule=='class_project':
+                        for o,a in text_objs.items():
+                            if not updated(o) or not greeting_shown(o):continue
+                            good |= any(p!=o and b.value!=a.value and greeting_shown(p) and not any(invoked(p,m.name,1) for m in updaters) for p,b in text_objs.items())
+        hints={'class_make':'Define a class with a string attribute. Create an instance with ClassName() and print its attribute using a dot.', 'class_attribute':'Create two instances of a class with a string default. Change the attribute on only the first instance and print the attribute on both.', 'class_method':'Define a method with one self parameter that prints self.attribute. Create an instance and call its method with no arguments.', 'class_init':'Define __init__(self, value) and assign self.attribute = value. Create an instance with a string and print its attribute.', 'class_update':'Set a string attribute in __init__, then use a method with one extra parameter to change that same attribute. Call it with different text and print the attribute.', 'class_return':'Store a string in __init__. Return nonempty text + self.attribute from a method, then print the instance method call.', 'class_two':'Use __init__ for a numeric attribute and a method adding 1 to it. Create two differently valued instances, update only the first and print both attributes.', 'class_project':'Store a name in __init__, update it in a method, and return joined text in another method. Make two differently named instances, update only the first and print both greeting calls.'}
+        return ret(good,hints[rule])
+    return 'Unknown exercise.'
