@@ -1,4 +1,4 @@
-# pylearn v0.2
+# pylearn v0.3
 
 Python from zero in small, interactive steps.
 
@@ -17,4 +17,4 @@ Plain HTML, CSS and JavaScript; Pyodide 0.29.0 in a Web Worker; Nunito from Goog
 MIT for the app code. Pyodide and fonts retain their own licenses.
 
 ## Practice and audio
-Six guided skill cards plus a free-code playground. Mistakes get specific guidance for quotes, parentheses, names and indentation. Sound can be muted in Profile; the setting stays on this device. Effects: Kenney Interface Sounds, CC0, downloaded from https://opengameart.org/content/interface-sounds . Original license is included in audio/LICENSE.txt. These are pre-produced interface effects, not claimed to be field recordings.
+Six guided skill cards plus a free-code playground. Mistakes get specific guidance for quotes, parentheses, names and indentation. Correct answers in a row raise the same chime along a major scale, capped at one octave to avoid shrill pitches. A wrong answer resets it; the streak is per session. Tap, retry and completion keep separate effects. Sound can be muted in Profile; the setting stays on this device. Effects: Kenney Interface Sounds, CC0, downloaded from https://opengameart.org/content/interface-sounds . Original license is included in audio/LICENSE.txt. These are pre-produced interface effects, not claimed to be field recordings.

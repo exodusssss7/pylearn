@@ -1,7 +1,7 @@
-/* pylearn v0.2 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.3 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.2";
+const VERSION = "v0.3";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -20,7 +20,7 @@ function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(s
 let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0;
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=0.2");
+  pyWorker = new Worker("py-worker.js?v=0.3");
   pyWorker.onerror = () => {
     for (const id of Object.keys(pyPending)) { const p = pyPending[id]; clearTimeout(p.timer); p.resolve({ ok: false, out: "", err: "Python could not load. Check your connection and try again." }); delete pyPending[id]; }
     pyWorker.terminate(); pyWorker = null; pyReady = false;

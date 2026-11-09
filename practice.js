@@ -1,19 +1,65 @@
-/* pylearn v0.2: concept practice and optional local sound effects */
+/* pylearn v0.3: rising correct-answer sounds, with a quiet pitch ceiling. */
 let soundOn = true;
 try { soundOn = localStorage.getItem('pylearn-sound') !== 'off'; } catch(e) {}
+let correctCombo = 0;
+let audioContext;
 const sounds = {};
-function playSound(name) {
-  if (!soundOn) return;
-  const a = sounds[name] || (sounds[name] = new Audio('audio/' + name + '.ogg'));
-  a.volume = name === 'tap' ? .15 : .3;
-  a.currentTime = 0;
-  a.play().catch(() => {});
+const activeSounds = new Set();
+const soundFiles = {};
+const CORRECT_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
+// Fetch early; decoding and playback use the audio context unlocked by a tap.
+for (const name of ['tap', 'correct', 'retry', 'finish']) {
+  soundFiles[name] = fetch('audio/' + name + '.ogg').then(r => {
+    if (!r.ok) throw new Error('Sound unavailable');
+    return r.arrayBuffer();
+  }).catch(() => null);
 }
+function unlockAudio() {
+  if (!soundOn) return;
+  try {
+    audioContext ||= new (window.AudioContext || window.webkitAudioContext)();
+    if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+  } catch(e) {}
+}
+async function playSound(name, preview = false) {
+  if (name === 'retry') correctCombo = 0;
+  let semitones = 0;
+  if (name === 'correct' && !preview) {
+    semitones = CORRECT_STEPS[Math.min(correctCombo, CORRECT_STEPS.length - 1)];
+    correctCombo++;
+  }
+  if (!soundOn) return;
+  unlockAudio();
+  if (!audioContext) return;
+  try {
+    if (!sounds[name]) sounds[name] = soundFiles[name].then(bytes => bytes ? audioContext.decodeAudioData(bytes.slice(0)) : null);
+    const buffer = await sounds[name];
+    if (!buffer || !soundOn) return;
+    // Feedback replaces a tap or older feedback, rather than piling up sounds.
+    for (const playing of activeSounds) {
+      if (name !== 'tap' || playing.soundName === 'tap') {
+        try { playing.stop(); } catch(e) {}
+      }
+    }
+    const source = audioContext.createBufferSource();
+    const gain = audioContext.createGain();
+    source.buffer = buffer;
+    source.playbackRate.value = Math.pow(2, semitones / 12);
+    gain.gain.value = name === 'tap' ? .12 : name === 'retry' ? .22 : .3;
+    source.connect(gain); gain.connect(audioContext.destination);
+    source.soundName = name;
+    activeSounds.add(source);
+    source.onended = () => { activeSounds.delete(source); source.disconnect(); gain.disconnect(); };
+    source.start();
+  } catch(e) { /* Audio is optional; learning must work even if it is blocked. */ }
+}
+document.addEventListener('pointerdown', unlockAudio, {passive:true});
 document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#sheetBtn')) playSound('tap'); });
 function toggleSound() {
   soundOn = !soundOn;
   try { localStorage.setItem('pylearn-sound', soundOn ? 'on' : 'off'); } catch(e) {}
-  if (soundOn) playSound('correct');
+  if (soundOn) playSound('correct', true);
+  else for (const source of activeSounds) { try { source.stop(); } catch(e) {} }
   renderProfile();
 }
 const PRACTICE = [
