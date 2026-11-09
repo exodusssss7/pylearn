@@ -256,6 +256,7 @@ function renderStep() {
     body.innerHTML = `<div class="step-anim">${stepHead(s)}
       <div class="step-prompt">${esc(s.body)}</div>
       <div class="code-card"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div><pre>${hi(s.code)}</pre></div>
+      ${s.inputs ? `<div class="sample-answers">Sample answers, in order: ${s.inputs.map(a=>esc(a)).join(", ")}</div>` : ""}
       ${consoleHTML(s.out)}
     </div>`;
     foot.innerHTML = `<button class="btn" id="next">Continue</button>`;
