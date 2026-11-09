@@ -90,6 +90,53 @@ def check_concept(source, rule):
             total = has_call(tail, 'print', lambda a: is_len(a, lambda v: isinstance(v, ast.Name) and v.id == same))
             ok |= added and each and total
         return result(ok, 'Start with at least two guest names, append one more, print each guest in a for loop, then print len(your_list) on an unindented line after the loop.')
+    # Unit 3: compare and combine conditions; safe, finite loop shapes.
+    def number(n): return isinstance(n, ast.Constant) and type(n.value) in (int, float)
+    def const(n, v): return isinstance(n, ast.Constant) and n.value == v
+    def name_is(n, name): return isinstance(n, ast.Name) and n.id == name
+    def numeric_expr(n):
+        if number(n): return True
+        if isinstance(n, ast.Name):
+            return any(isinstance(st, ast.Assign) and number(st.value) and any(name_is(t,n.id) for t in st.targets) for st in tree.body)
+        return isinstance(n, ast.BinOp) and numeric_expr(n.left) and numeric_expr(n.right)
+    if rule == 'update':
+        updates = {t.id for st in tree.body if isinstance(st,ast.Assign) for t in st.targets if isinstance(t,ast.Name) and isinstance(st.value,ast.BinOp) and isinstance(st.value.op,ast.Add) and name_is(st.value.left,t.id) and number(st.value.right) and st.value.right.value > 0}
+        return result(bool(updates & printed_names), 'Store a starting number. Then use name = name + 1 (or another positive amount), and print the updated variable.')
+    if rule == 'subtract':
+        return result(any(isinstance(a,ast.BinOp) and isinstance(a.op,ast.Sub) and numeric_expr(a.left) and numeric_expr(a.right) for a in printed), 'Put a subtraction inside print, such as print(9 - 3). Use numbers, not quoted digits.')
+    if rule in ('equality','boundaries'):
+        required = (ast.Eq,ast.NotEq) if rule=='equality' else (ast.Lt,ast.LtE,ast.GtE)
+        operators = [type(op) for a in printed for n in ast.walk(a) if isinstance(n,ast.Compare) for op in n.ops]
+        return result(all(op in operators for op in required), 'Print both == and != comparisons.' if rule=='equality' else 'Print each kind of comparison: <, <=, and >=. Choose your own numbers.')
+    if rule == 'elif':
+        ok = any(isinstance(n,ast.If) and has_call(n.body,'print') and len(n.orelse)==1 and isinstance(n.orelse[0],ast.If) and has_call(n.orelse[0].body,'print') and has_call(n.orelse[0].orelse,'print') for n in tree.body)
+        return result(ok,'Use if, elif and else, each with its own indented print. Line up the three branch labels.')
+    if rule in ('and','or'):
+        op = ast.And if rule=='and' else ast.Or
+        ok = any(isinstance(a,ast.BoolOp) and isinstance(a.op,op) and len(a.values)>=2 and all(isinstance(v,ast.Compare) for v in a.values) for a in printed)
+        return result(ok,'Print two full comparisons joined by '+rule+'. Repeat the variable and comparison on each side.')
+    if rule == 'not':
+        return result(any(isinstance(a,ast.UnaryOp) and isinstance(a.op,ast.Not) and isinstance(a.operand,ast.Compare) for a in printed),'Use print(not (your comparison)). not reverses the whole condition.')
+    if rule in ('while_count','while_break','while_down'):
+        down = rule=='while_down'
+        stop = 5 if rule=='while_break' else 0 if down else 3
+        op = ast.Gt if down else ast.Lt
+        good = False
+        for loop in tree.body:
+            if not isinstance(loop,ast.While):continue
+            test=loop.test
+            if not (isinstance(test,ast.Compare) and isinstance(test.left,ast.Name) and len(test.ops)==1 and isinstance(test.ops[0],op) and const(test.comparators[0],stop)):continue
+            name=test.left.id
+            before=tree.body[:tree.body.index(loop)]
+            start=any(isinstance(st,ast.Assign) and any(name_is(t,name) for t in st.targets) and const(st.value,3 if down else 0) for st in before)
+            update=any(isinstance(st,ast.Assign) and any(name_is(t,name) for t in st.targets) and isinstance(st.value,ast.BinOp) and isinstance(st.value.op,ast.Sub if down else ast.Add) and name_is(st.value.left,name) and const(st.value.right,1) for st in loop.body)
+            show=has_call(loop.body,'print',lambda a:name_is(a,name))
+            final=has_call(tree.body[tree.body.index(loop)+1:],'print',text)
+            breaks=True
+            if rule=='while_break':
+                breaks=any(isinstance(st,ast.If) and isinstance(st.test,ast.Compare) and name_is(st.test.left,name) and len(st.test.ops)==1 and isinstance(st.test.ops[0],ast.Eq) and const(st.test.comparators[0],2) and any(isinstance(b,ast.Break) for b in st.body) for st in loop.body)
+            good |= start and update and show and breaks and (final if rule!='while_count' else True)
+        return result(good, 'Check the starting value, while condition, indented print and one-step update. '+('Subtract 1 and print a message after the loop.' if down else 'Add 1 each turn.'+(' Use if count == 2: with break inside, and a final message after the loop.' if rule=='while_break' else '')))
     loops = [n for n in nodes if isinstance(n, ast.For) and isinstance(n.iter, ast.Call) and isinstance(n.iter.func, ast.Name) and n.iter.func.id == 'range']
     if rule == 'loop':
         loops = [loop for loop in loops if len(loop.iter.args) == 1 and isinstance(loop.iter.args[0], ast.Constant) and isinstance(loop.iter.args[0].value, int) and loop.iter.args[0].value > 1]

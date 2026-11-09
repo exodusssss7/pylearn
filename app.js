@@ -1,7 +1,7 @@
-/* pylearn v0.5 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.6 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.5";
+const VERSION = "v0.6";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -81,7 +81,8 @@ const UNITS = [
 ];
 
 UNITS.push({id:"u2",title:"Unit 2: Text & lists",sub:"10 lessons. From joining words to your own guest list.",lessons:UNIT2_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
-const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS];
+UNITS.push({id:"u3",title:"Unit 3: Choices & while",heading:"Keep going, with a plan",sub:"11 lessons. Better conditions and loops that know when to stop.",lessons:UNIT3_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS];
 const TOTAL_LESSONS = ALL_LESSONS.length;
 const LESSON_L1 = FIRST_LESSON;
 
@@ -140,7 +141,7 @@ function renderHome() {
     </div>`;
   }).join("");
 
-  return `<section class="unit-section" id="${u.id}"><div class="unit-card"><div class="unit-kicker">${u.title}</div><div class="unit-title">${u.id==='u1'?'Python from zero':'A place for everything'}</div><div class="unit-sub">${u.sub}</div></div><div class="course-progress">${u.lessons.filter(l=>state.done.includes(l.id)).length} / ${u.lessons.length} lessons complete</div><div class="path">${nodes}</div></section>`;
+  return `<section class="unit-section" id="${u.id}"><div class="unit-card"><div class="unit-kicker">${u.title}</div><div class="unit-title">${u.heading || (u.id==='u1'?'Python from zero':'A place for everything')}</div><div class="unit-sub">${u.sub}</div></div><div class="course-progress">${u.lessons.filter(l=>state.done.includes(l.id)).length} / ${u.lessons.length} lessons complete</div><div class="path">${nodes}</div></section>`;
   }).join('');
   app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div>${sections}</div>${navHTML("home")}</div>`;
 
