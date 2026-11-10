@@ -1,4 +1,4 @@
-# pylearn v1.1
+# pylearn v1.2
 
 Python from zero in small, interactive steps.
 
@@ -60,3 +60,6 @@ A Continue card opens the next unfinished lesson; the course map expands by unit
 
 ## Topic navigation in v1.1
 Unit and lesson titles use standard Python terms. The course search finds units and lessons by topic, including loops, functions, classes and exception handling. Every lesson is open from the start, with a friendly suggestion when earlier lessons are incomplete. Existing progress and drafts keep their original IDs.
+
+## Ranks in v1.2
+Ranks use unique completed lessons: Bronze (0), Silver (5), Gold (15), Platinum (30), Diamond (50), Master (75), Legendary (96). Existing completed lessons count automatically. Replays still earn XP but do not advance rank. The header badge opens rank details, and crossing a threshold at lesson completion shows an original SVG badge reveal and a rising four-note chime made from the existing CC0 effect. Mute and reduced-motion preferences are respected. Rank animation changes transform and opacity only; actual phone frame rate depends on the device.

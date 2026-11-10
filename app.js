@@ -1,7 +1,7 @@
-/* pylearn v1.1 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v1.2 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v1.1";
+const VERSION = "v1.2";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -32,7 +32,7 @@ function showRunControl(){
 }
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=1.1");
+  pyWorker = new Worker("py-worker.js?v=1.2");
   const worker=pyWorker;
   pyWorker.onerror = () => {
     if(pyWorker!==worker)return;
@@ -156,6 +156,7 @@ function topbarHTML() {
   return `<div class="topbar">
     <div class="logo"><img src="icon.svg" alt=""><span><span class="py">py</span>learn</span></div>
     <div class="spacer"></div>
+    <button class="rank-header" onclick="renderProfile()" aria-label="${currentRank().name} rank. View ranks" title="${currentRank().name}">${rankBadge(currentRank())}</button>
     <div class="stat streak"><span class="ico">🔥</span>${state.streak}</div>
     <div class="stat xp"><span class="ico">⚡</span>${state.xp}</div>
   </div>`;
@@ -499,6 +500,8 @@ function nextStep() {
 }
 
 function finishLesson() {
+  const previousCount=state.done.length;
+  const previousRank=currentRank(previousCount);
   const firstTime = !state.done.includes(L.id);
   if (firstTime) state.done.push(L.id);
   state.xp += L.earned;
@@ -511,14 +514,18 @@ function finishLesson() {
     state.lastDay = t;
   }
   saveState();
-  playSound("finish");
+  const rank=currentRank();
+  const rankedUp=rank.index>previousRank.index;
+  if(rankedUp)playRankSound();else playSound("finish");
   confetti();
   app.innerHTML = `<div class="view">
     <div class="celebrate step-anim">
-      <div class="buddy-finish">${brickBuddy("celebrate")}</div>
+      ${rankedUp?`<div class="rank-up"><span class="rank-up-kicker">RANK UP</span><div class="rank-reveal"><div class="rank-orbit" aria-hidden="true"></div>${rankBadge(rank,'large')}</div><h2>${rank.name}</h2><p>${previousRank.name} → ${rank.name}. ${state.done.length} lessons completed.</p></div>`:`<div class="buddy-finish">${brickBuddy("celebrate")}</div>`}
       <h1>${firstTime && state.done.length === TOTAL_LESSONS ? "All lessons complete!" : "Lesson complete!"}</h1>
       <p>You wrote real Python. That is the whole secret - tiny steps, done daily.</p>
       <div class="xp-pill">⚡ +${L.earned} XP</div>
+      ${rankProgress(state.done.length,firstTime,previousCount)}
+      ${!firstTime?`<p class="rank-replay-note">Replay complete. Finish a different lesson to advance your rank.</p>`:""}
       <button class="btn" id="done">Back to path</button>
     </div>
   </div>`;
@@ -527,6 +534,7 @@ function finishLesson() {
 }
 
 function confetti() {
+  document.querySelectorAll(".confetti-layer").forEach(e=>e.remove());
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   const layer = document.createElement("div");
   layer.className = "confetti-layer";
@@ -593,15 +601,16 @@ function renderPlayground() {
 function renderProfile() {
   navView = "me";
   const lessons = state.done.length;
-  const level = state.xp >= 200 ? "Rising snake" : state.xp >= 80 ? "Beginner+" : "Beginner";
+  const level = currentRank().name;
   app.innerHTML = `<div class="view">
     ${topbarHTML()}
     <div class="pad">
       <div class="profile-card">
         <div class="avatar">🐍</div>
         <h2>Python learner</h2>
-        <div class="lvl">Level: ${level}</div>
+        <div class="lvl">Rank: ${level}</div>
       </div>
+      ${rankDetails()}
       <div class="stat-grid">
         <div class="stat-box"><div class="num" style="color:#ff9f43">🔥 ${state.streak}</div><div class="lbl">Day streak</div></div>
         <div class="stat-box"><div class="num" style="color:var(--accent)">⚡ ${state.xp}</div><div class="lbl">Total XP</div></div>
