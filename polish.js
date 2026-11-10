@@ -4,13 +4,13 @@ function installPolish(){
   function setup(ed){
     if(ed.dataset.enhanced)return;ed.dataset.enhanced='true';
     const key='pylearn-draft-'+getKey(ed);
-    try{const draft=localStorage.getItem(key);if(draft!==null)ed.value=draft}catch(e){}
+    try{const draft=deviceStore.getItem(key);if(draft!==null)ed.value=draft}catch(e){}
     ed.setAttribute('aria-label','Python code editor');ed.setAttribute('autocorrect','off');ed.setAttribute('enterkeyhint','enter');ed.wrap='off';
     const tools=document.createElement('div');tools.className='editor-tools';
     tools.innerHTML='<button type="button" data-insert="    " aria-label="Insert four spaces">Indent</button><button type="button" data-newline>New line</button><button type="button" data-insert="()" data-back="1" aria-label="Insert parentheses">( )</button><button type="button" data-insert=\'""\' data-back="1" aria-label="Insert quotes">" "</button><button type="button" data-insert=":" aria-label="Insert colon">:</button><button type="button" data-copy>Copy</button>';
     ed.parentElement.appendChild(tools);
-    const note=document.createElement('div');note.className='draft-note';note.textContent='Draft stays on this device. No input answers saved.';ed.parentElement.appendChild(note);
-    const save=()=>{try{localStorage.setItem(key,ed.value);note.textContent='Draft saved on this device. No input answers saved.'}catch(e){note.textContent='Draft cannot be saved in this browser.'}};
+    const note=document.createElement('div');note.className='draft-note';note.textContent=deviceStore.unavailable?'Draft lasts until this page closes. Storage is unavailable.':'Draft stays on this device. No input answers saved.';ed.parentElement.appendChild(note);
+    const save=()=>{try{deviceStore.setItem(key,ed.value);note.textContent=deviceStore.unavailable?'Draft lasts until this page closes. Storage is unavailable.':'Draft saved on this device. No input answers saved.'}catch(e){note.textContent='Draft cannot be saved in this browser.'}};
     ed.addEventListener('input',save);
     function insert(value,back=0){const start=ed.selectionStart;ed.setRangeText(value,start,ed.selectionEnd,'end');ed.selectionStart=ed.selectionEnd=start+value.length-back;ed.focus();save()}
     tools.querySelectorAll('[data-insert]').forEach(btn=>btn.onclick=()=>insert(btn.dataset.insert,Number(btn.dataset.back||0)));
@@ -21,7 +21,7 @@ function installPolish(){
   const refresh=()=>document.querySelectorAll('textarea.editor').forEach(setup);
   new MutationObserver(refresh).observe(document.getElementById('app'),{childList:true,subtree:true});refresh();
   // Save before leaving as well, including programmatically updated editor content.
-  document.addEventListener('click',()=>document.querySelectorAll('textarea.editor[data-enhanced]').forEach(ed=>{try{localStorage.setItem('pylearn-draft-'+getKey(ed),ed.value)}catch(e){}}),true);
+  document.addEventListener('click',()=>document.querySelectorAll('textarea.editor[data-enhanced]').forEach(ed=>{try{deviceStore.setItem('pylearn-draft-'+getKey(ed),ed.value)}catch(e){}}),true);
 }
 
 /* One viewport resize handler, no animation loop or layout polling. */

@@ -1,7 +1,7 @@
 /* First-run welcome, local buddy preferences, and optional question review. */
 function reviewItems(){
  try {
-  const items=JSON.parse(localStorage.getItem('pylearn-review-v1'));
+  const items=JSON.parse(deviceStore.getItem('pylearn-review-v1'));
   if(!Array.isArray(items))return [];
   const seen=new Set();return items.filter(r=>{
    if(!r||typeof r.id!=='string'||!Number.isInteger(r.step))return false;
@@ -11,7 +11,7 @@ function reviewItems(){
   }).map(r=>({id:r.id,step:r.step}));
  }catch(e){return []}
 }
-function storeReview(items){try{localStorage.setItem('pylearn-review-v1',JSON.stringify(items))}catch(e){toast('Review could not be saved on this device.')}}
+function storeReview(items){try{deviceStore.setItem('pylearn-review-v1',JSON.stringify(items))}catch(e){toast('Review could not be saved on this device.')}}
 function removeReview(id,step){const old=reviewItems(),items=old.filter(r=>r.id!==id||r.step!==step);if(items.length!==old.length)storeReview(items)}
 function skipStep(){
  if(!L||!L.stepMistakes)return;
@@ -28,11 +28,11 @@ function renderReview(){
  bindNav();$('#review-back').onclick=renderHome;$$('[data-review]').forEach(b=>b.onclick=()=>{const r=items[+b.dataset.review];startLesson(r.id,r.step)});
 }
 function buddyChoices(){return `<div class="buddy-grid">${BUDDIES.map(b=>`<button class="buddy-choice ${selectedBuddy().id===b.id?'chosen':''}" data-buddy="${b.id}" aria-pressed="${selectedBuddy().id===b.id}">${brickBuddy('ready','',b.id)}<strong>${b.name}</strong><small>${b.note}</small><span class="buddy-check" aria-hidden="true">${selectedBuddy().id===b.id?'✓':'+'}</span></button>`).join('')}</div>`}
-function bindBuddyChoices(after){$$('[data-buddy]').forEach(b=>b.onclick=()=>{try{localStorage.setItem('pylearn-buddy',b.dataset.buddy)}catch(e){toast('Buddy could not be saved in this browser.')}after()})}
+function bindBuddyChoices(after){$$('[data-buddy]').forEach(b=>b.onclick=()=>{try{deviceStore.setItem('pylearn-buddy',b.dataset.buddy)}catch(e){toast('Buddy could not be saved in this browser.')}after()})}
 function renderBuddies(){
  navView='me';app.innerHTML=`<div class="view">${topbarHTML()}<div class="pad buddy-page"><div class="step-kicker">MEET YOUR LITTLE CREW</div><h1>A buddy for every day.</h1><p>Same tiny steps. A little more you.</p>${buddyChoices()}<p class="local-note">Your choice stays on this device. All buddies are free.</p><button class="btn" id="buddy-done">Keep learning</button></div>${navHTML('me')}</div>`;bindNav();bindBuddyChoices(renderBuddies);$('#buddy-done').onclick=renderProfile;
 }
-function completeWelcome(start=false){try{localStorage.setItem('pylearn-welcome-v1','done')}catch(e){}if(start)startLesson('l1');else renderHome()}
+function completeWelcome(start=false){try{deviceStore.setItem('pylearn-welcome-v1','done')}catch(e){}if(start)startLesson('l1');else renderHome()}
 function renderWelcome(page=0,replay=false){
  navView='welcome';
  const pages=[{eyebrow:'HELLO, CURIOUS HUMAN',title:'Big ideas.<br>Little Python steps.',text:'Start from zero. Learn one idea, try it, and watch real Python run.',art:`<div class="welcome-hero">${brickBuddy('happy')}<span class="orbit-code">print("Hi!")</span><span class="orbit-spark">✦</span></div>`,button:'Meet your buddy'},
@@ -44,7 +44,7 @@ function renderWelcome(page=0,replay=false){
  if(page===1)bindBuddyChoices(()=>renderWelcome(1,replay));
 }
 function bootLearning(){
- let seen=false;try{seen=localStorage.getItem('pylearn-welcome-v1')==='done'}catch(e){}
+ let seen=false;try{seen=deviceStore.getItem('pylearn-welcome-v1')==='done'}catch(e){}
  // Existing learners keep their uninterrupted path. The tour is in Profile.
  if(seen||state.done.length||state.xp)renderHome();else renderWelcome();
 }

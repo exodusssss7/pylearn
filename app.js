@@ -1,7 +1,7 @@
-/* PyPerky v1.6 - bite-sized Python lessons, real Python in the browser */
+/* PyPerky v1.7 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v1.6";
+const VERSION = "v1.7";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -10,69 +10,74 @@ const DEFAULT_STATE = { xp: 0, streak: 0, lastDay: null, done: [], bestLesson: {
 let state = loadState();
 function loadState() {
   try {
-    const s = JSON.parse(localStorage.getItem("pylearn-v1"));
+    const s = JSON.parse(deviceStore.getItem("pylearn-v1"));
     const clean = Object.assign({}, DEFAULT_STATE, s && typeof s==='object' ? s : {});
     clean.done=Array.isArray(clean.done)?[...new Set(clean.done.filter(id=>typeof id==='string' && /^l(?:[1-9]|[1-8][0-9]|9[0-6])$/.test(id)))]:[];
     for(const key of ['xp','streak'])clean[key]=Number.isFinite(clean[key])&&clean[key]>=0?Math.floor(clean[key]):0;
     clean.bestLesson=clean.bestLesson && typeof clean.bestLesson==='object' && !Array.isArray(clean.bestLesson)?clean.bestLesson:{};
     const best={};for(const [id,n] of Object.entries(clean.bestLesson))if(/^l(?:[1-9]|[1-8][0-9]|9[0-6])$/.test(id)&&Number.isFinite(n)&&n>=0)best[id]=Math.floor(n);
     return {xp:clean.xp,streak:clean.streak,done:clean.done,bestLesson:best,lastDay:typeof clean.lastDay==='string'&&/^\d{4}-\d{1,2}-\d{1,2}$/.test(clean.lastDay)?clean.lastDay:null};
-  } catch (e) { return { ...DEFAULT_STATE }; }
+  } catch (e) { return { ...DEFAULT_STATE, done: [], bestLesson: {} }; }
 }
-function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(state)); } catch(e) { toast("Storage is unavailable. Progress lasts only until you close this page."); } }
+function saveState() { try { deviceStore.setItem("pylearn-v1", JSON.stringify(state)); } catch(e) { toast("Storage is unavailable. Progress lasts only until you close this page."); } }
 
 /* ---------- python runner (worker) ---------- */
-let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0, workerSource;
+let pyWorker=null, pyReady=false, pyPending={}, pySeq=0, workerGeneration=0, workerAbort=null, runBusy=false;
 function hideRunControl(){document.getElementById('run-status')?.remove()}
 function stopPython(){
-  pyWorker?.terminate();pyWorker=null;pyReady=false;hideRunControl();
-  for(const [id,p] of Object.entries(pyPending)){clearTimeout(p.timer);p.resolve({ok:false,out:'',err:'Stopped by you. Your code is unchanged. Run again when ready.'});delete pyPending[id]}
+ workerGeneration++;workerAbort?.abort();workerAbort=null;
+ pyWorker?.terminate();pyWorker=null;pyReady=false;hideRunControl();
+ for(const [id,p] of Object.entries(pyPending)){clearTimeout(p.timer);p.resolve({ok:false,system:true,cancelled:true,out:'',err:'Stopped by you. Your code is unchanged.'});delete pyPending[id]}
 }
 function showRunControl(){
-  hideRunControl();const bar=document.createElement('div');bar.id='run-status';bar.setAttribute('role','status');bar.innerHTML=`<span>${pyReady?'Python is running':'Loading Python, then running'}</span><button type="button" id="stop-python">Stop</button>`;document.body.appendChild(bar);document.getElementById('stop-python').onclick=stopPython;
+ hideRunControl();const bar=document.createElement('div');bar.id='run-status';bar.setAttribute('role','status');bar.innerHTML=`<span>${pyReady?'Python is running':'Loading Python. First run can take a minute.'}</span><button type="button" id="stop-python">Stop</button>`;document.body.appendChild(bar);document.getElementById('stop-python').onclick=stopPython;
 }
-async function ensureWorker() {
-  if (pyWorker) return;
-  workerSource ||= fetch('py-worker.js?v=1.4').then(r=>{if(!r.ok)throw Error('Worker unavailable');return r.text()}).catch(e=>{workerSource=null;throw e});
-  const source=await workerSource;if(pyWorker)return;
-  // Blob workers inherit this page's CSP, unlike separate network workers on Pages.
-  const blobURL=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
-  pyWorker = new Worker(blobURL);URL.revokeObjectURL(blobURL);
-  const worker=pyWorker;
-  pyWorker.onerror = () => {
-    if(pyWorker!==worker)return;
-    hideRunControl();
-    for (const id of Object.keys(pyPending)) { const p = pyPending[id]; clearTimeout(p.timer); p.resolve({ ok: false, out: "", err: "Python could not load. Check your connection and try again." }); delete pyPending[id]; }
-    pyWorker?.terminate(); pyWorker = null; pyReady = false;
-  };
-  pyWorker.onmessage = (e) => {
-    if(pyWorker!==worker)return;
-    const m = e.data;
-    if (m.id === -1) return;
-    const p = pyPending[m.id];
-    if (p) { clearTimeout(p.timer); delete pyPending[m.id]; pyReady=true; hideRunControl(); p.resolve(m); }
-  };
+async function ensureWorker(generation){
+ if(pyWorker)return;
+ workerAbort=new AbortController();
+ const response=await fetch('py-worker.js?v=1.7',{signal:workerAbort.signal});
+ if(!response.ok)throw Error('Worker unavailable');
+ const source=await response.text();
+ if(generation!==workerGeneration)throw Error('Cancelled');
+ const blobURL=URL.createObjectURL(new Blob(['const APP_BASE='+JSON.stringify(new URL('.',location.href).href)+';\n',source],{type:'text/javascript'}));
+ try{pyWorker=new Worker(blobURL)}finally{URL.revokeObjectURL(blobURL)}
+ const worker=pyWorker;
+ pyWorker.onerror=()=>{
+  if(pyWorker!==worker)return;
+  hideRunControl();for(const id of Object.keys(pyPending)){const p=pyPending[id];clearTimeout(p.timer);p.resolve({ok:false,system:true,out:'',err:'Python could not load. Check your connection and try again. Your answer has not been marked wrong.'});delete pyPending[id]}
+  worker.terminate();pyWorker=null;pyReady=false;
+ };
+ pyWorker.onmessageerror=pyWorker.onerror;
+ pyWorker.onmessage=e=>{
+  if(pyWorker!==worker)return;const m=e.data;if(m.id===-1)return;
+  const pending=pyPending[m.id];if(!pending)return;
+  clearTimeout(pending.timer);delete pyPending[m.id];pyReady=!m.system;hideRunControl();
+  if(m.system){worker.terminate();pyWorker=null;pyReady=false}
+  pending.resolve(m);
+ };
 }
-async function runPython(code, rule, suppliedInputs) {
-  let inputs = suppliedInputs;
-  if (!Array.isArray(inputs) && needsInput(code)) inputs = await requestInputs();
-  if (inputs === null) return {ok:false,cancelled:true,out:"",err:"Run cancelled. Your code is unchanged."};
-  if(typeof code!=='string'||code.length>100000)return {ok:false,out:'',err:'Code is too large. Keep practice programs under 100,000 characters.'};
-  try{await ensureWorker()}catch(e){return {ok:false,out:'',err:'Python could not load. Check your connection and try again.'}}
-  if(Object.keys(pyPending).length)return {ok:false,out:'',err:'A program is already running. Stop it or wait before running again.'};
-  return new Promise((resolve) => {
-    const id = ++pySeq;
-    const timer = setTimeout(() => {
-      // hung (infinite loop) - kill and respawn the worker
-      delete pyPending[id];
-      pyWorker?.terminate(); pyWorker = null; pyReady = false;
-      hideRunControl();
-      resolve({ ok: false, out: "", err: "Run stopped. It may be a loop or a slow Python download. Try again." });
-    }, pyReady ? 9000 : 60000);
-    pyPending[id] = { resolve, timer };
-    pyWorker.postMessage({ id, code, rule, inputs:inputs || [] });
-    showRunControl();
+async function runPython(code,rule,suppliedInputs){
+ if(typeof code!=='string'||code.length>100000)return {ok:false,system:true,out:'',err:'Code is too large. Keep practice programs under 100,000 characters.'};
+ if(runBusy)return {ok:false,system:true,out:'',err:'A program is already running. Stop it or wait before running again.'};
+ runBusy=true;const generation=workerGeneration;
+ try{
+  let inputs=suppliedInputs;
+  if(!Array.isArray(inputs)&&needsInput(code))inputs=await requestInputs();
+  if(inputs===null||generation!==workerGeneration)return {ok:false,cancelled:true,out:''};
+  showRunControl();
+  return await new Promise(resolve=>{
+   const id=++pySeq;
+   const timer=setTimeout(()=>{
+    delete pyPending[id];workerGeneration++;workerAbort?.abort();pyWorker?.terminate();pyWorker=null;pyReady=false;hideRunControl();
+    resolve({ok:false,system:true,out:'',err:'Run stopped: a loop took too long, or Python could not finish loading. Your code is safe. Check your connection and try again.'});
+   },pyReady?12000:90000);
+   pyPending[id]={resolve,timer};
+   ensureWorker(generation).then(()=>{if(generation===workerGeneration&&pyPending[id])pyWorker.postMessage({id,code,rule,inputs:inputs||[]})}).catch(()=>{
+    if(!pyPending[id])return;clearTimeout(timer);delete pyPending[id];hideRunControl();
+    resolve({ok:false,system:true,out:'',err:'Python could not load. Check your connection and try again. Your answer has not been marked wrong.'});
+   });
   });
+ }finally{runBusy=false}
 }
 
 function needsInput(code) {
@@ -166,7 +171,7 @@ function topbarHTML() {
     <button class="rank-header" data-action="ranks" aria-label="${currentRank().name} rank. View ranks" title="${currentRank().name}">${rankBadge(currentRank())}</button>
     <div class="stat streak"><span class="ico">🔥</span>${state.streak}</div>
     <div class="stat xp"><span class="ico">⚡</span>${state.xp}</div>
-  </div>`;
+  </div>${deviceStore.unavailable?'<div class="persistence-note" role="status">Storage is unavailable. Changes stay only until this page closes.</div>':""}`;
 }
 function navHTML(active) {
   return `<div class="bottomnav">
@@ -301,11 +306,11 @@ function showSheet(good, why, onContinue) {
     </div></div><div class="feedback-actions"><button class="btn ${good ? "green" : ""}" id="sheetBtn">${good ? "Continue" : "Try again"}</button>${!good?'<button class="btn ghost" id="sheetSkip">Skip step →</button>':''}</div>${!good?'<p class="skip-note">Skip without XP. This step will wait in Review.</p>':''}`;
   sheet.setAttribute('role','region');sheet.setAttribute('aria-label',good?'Correct answer':'Answer feedback');
   if(!good) $('#sheetSkip').onclick=()=>{sheet.classList.remove('show');skipStep();};
-  requestAnimationFrame(() => sheet.classList.add("show"));
+  requestAnimationFrame(() => {if(sheet.isConnected){sheet.classList.add("show");$("#sheetBtn",sheet)?.focus({preventScroll:true});}});
   $("#sheetBtn").onclick = () => {
     sheet.classList.remove("show");
     $("#sheetBtn").disabled = true;
-    if (good && onContinue) setTimeout(onContinue, 180);
+    if (good && onContinue) { const lesson=L,step=L.i; setTimeout(()=>{if(sheet.isConnected&&L===lesson&&L.i===step)onContinue()},180); } else { $("#ed,#check,#run,#undo")?.focus({preventScroll:true}); }
   };
 }
 
@@ -344,6 +349,7 @@ function renderStep() {
       pyReady = !!pyWorker;
       $("#pymsg").innerHTML = "";
       $("#cout").innerHTML = consoleHTML(r.out, r.ok ? null : r.err);
+      if(r.system){btn.disabled=false;toast('Python needs another try. Your answer was not marked wrong.');return;}
       if (r.ok && r.out.trim() === s.expect) {
         award(10);
         foot.innerHTML = "";
@@ -471,6 +477,7 @@ function renderStep() {
       pyReady = !!pyWorker;
       $("#pymsg").innerHTML = "";
       $("#cout").innerHTML = consoleHTML(r.out, r.ok ? null : friendlyErr(r.err));
+      if(r.system){btn.disabled=false;toast('Python needs another try. Your answer was not marked wrong.');return;}
       if (r.ok && r.concept && r.concept.ok) {
         award(10);
         foot.innerHTML = "";
@@ -654,7 +661,7 @@ function renderProfile() {
     document.body.appendChild(bg);
     $("#keep", bg).onclick = () => bg.remove();
     $("#wipe", bg).onclick = () => {
-      try{localStorage.removeItem("pylearn-v1");localStorage.removeItem("pylearn-review-v1")}catch(e){}
+      try{deviceStore.removeItem("pylearn-v1");deviceStore.removeItem("pylearn-review-v1")}catch(e){}
       state = { ...DEFAULT_STATE, done: [] };
       bg.remove();
       toast("Progress reset");

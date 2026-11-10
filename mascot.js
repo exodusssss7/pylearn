@@ -5,7 +5,7 @@ const BUDDIES = [
   {id:'nova',name:'Nova',note:'A starry-eyed builder',color:'#b5a1ff'},
   {id:'pip',name:'Pip',note:'Big ideas, tiny headphones',color:'#ffb0a0'}
 ];
-function selectedBuddy(){try{const id=localStorage.getItem('pylearn-buddy');return BUDDIES.find(b=>b.id===id)||BUDDIES[0]}catch(e){return BUDDIES[0]}}
+function selectedBuddy(){try{const id=deviceStore.getItem('pylearn-buddy');return BUDDIES.find(b=>b.id===id)||BUDDIES[0]}catch(e){return BUDDIES[0]}}
 function brickBuddy(mood='ready', size='', buddyId=selectedBuddy().id) {
  const buddy=BUDDIES.find(b=>b.id===buddyId)||BUDDIES[0];
  const accessory=buddy.id==='mint'?'<path d="M74 30q-12-17-25-10 5 17 25 10Z" fill="#36bb93"/><path d="M75 29q1-19 15-18 5 14-15 18Z" fill="#8bf1c8"/>':buddy.id==='nova'?'<path d="m75 8 4 9 10 1-8 6 3 10-9-5-9 5 3-10-8-6 10-1Z" fill="#fff0a3"/><circle cx="58" cy="57" r="12" stroke="#fff0a3" stroke-width="3"/><circle cx="89" cy="57" r="12" stroke="#fff0a3" stroke-width="3"/><path d="M70 56h7" stroke="#fff0a3" stroke-width="3"/>':buddy.id==='pip'?'<path d="M32 62V48a40 40 0 0 1 80 0v14" stroke="#5e4778" stroke-width="7"/><rect x="27" y="49" width="13" height="24" rx="6" fill="#b899e3"/><rect x="105" y="49" width="13" height="24" rx="6" fill="#b899e3"/>':'';

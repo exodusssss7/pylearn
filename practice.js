@@ -1,6 +1,6 @@
 /* pylearn v0.3: rising correct-answer sounds, with a quiet pitch ceiling. */
 let soundOn = true;
-try { soundOn = localStorage.getItem('pylearn-sound') !== 'off'; } catch(e) {}
+try { soundOn = deviceStore.getItem('pylearn-sound') !== 'off'; } catch(e) {}
 let correctCombo = 0;
 let audioContext;
 const sounds = {};
@@ -10,7 +10,7 @@ const CORRECT_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
 // Audio is optional. Fetch on first interaction, not during page startup.
 let soundRequest=0;
 function soundBytes(name){
-  return soundFiles[name] ||= fetch('audio/'+name+'.ogg').then(r=>{if(!r.ok)throw Error('Sound unavailable');return r.arrayBuffer()}).catch(()=>null);
+  return soundFiles[name] ||= fetch('audio/'+name+'.ogg').then(r=>{if(!r.ok)throw Error('Sound unavailable');return r.arrayBuffer()}).catch(()=>{delete soundFiles[name];return null});
 }
 function unlockAudio() {
   if (!soundOn) return;
@@ -33,7 +33,8 @@ async function playSound(name, preview = false) {
   try {
     if (!sounds[name]) sounds[name] = soundBytes(name).then(bytes => bytes ? audioContext.decodeAudioData(bytes.slice(0)) : null);
     const buffer = await sounds[name];
-    if (!buffer || !soundOn || request!==soundRequest) return;
+    if(!buffer){delete sounds[name];return;}
+    if (!soundOn || request!==soundRequest) return;
     // Feedback replaces a tap or older feedback, rather than piling up sounds.
     for (const playing of activeSounds) {
       if (name !== 'tap' || playing.soundName === 'tap') {
@@ -56,7 +57,7 @@ document.addEventListener('pointerdown', unlockAudio, {passive:true});
 document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#sheetBtn') && !document.querySelector('.celebrate')) playSound('tap'); });
 function toggleSound() {
   soundOn = !soundOn;
-  try { localStorage.setItem('pylearn-sound', soundOn ? 'on' : 'off'); } catch(e) {}
+  try { deviceStore.setItem('pylearn-sound', soundOn ? 'on' : 'off'); } catch(e) {}
   if (soundOn) playSound('correct', true);
   else for (const source of activeSounds) { try { source.stop(); } catch(e) {} }
   renderProfile();
@@ -100,7 +101,7 @@ function renderPractice(index = practiceIndex) {
   bindNav();
   $('#practice-prev').onclick=()=>{stopPython();renderPractice(index-1)};
   $('#practice-next').onclick=()=>{stopPython();renderPractice(index+1)};
-  $('#skill').onchange = e => renderPractice(+e.target.value);
+  $('#skill').onchange = e => {stopPython();renderPractice(+e.target.value)};
   $('#skill-search').oninput=e=>{
     const query=e.target.value.toLowerCase().trim().replace(/\bclasses\b/g,'class').replace(/\bdictionaries\b/g,'dictionar').replace(/\b(loops|files|lists|strings|functions|objects|modules|imports|errors|records)\b/g,w=>w.slice(0,-1));const matches=PRACTICE.map((c,i)=>({c,i})).filter(({c})=>(c.name+' '+c.intro+' '+c.rule).toLowerCase().includes(query));
     $('#skill').innerHTML=matches.length?`<option value="" disabled selected>Choose from ${matches.length} matches</option>`+matches.map(({c,i})=>`<option value="${i}">${i+1}. ${c.name}</option>`).join(''):'<option>No matching skills</option>';
@@ -118,6 +119,7 @@ function renderPractice(index = practiceIndex) {
     if(result.cancelled){btn.disabled=false;btn.textContent="Run & check";$("#practice-buddy").innerHTML="";return;}
     pyReady=!!pyWorker;
     $('#practice-output').innerHTML=consoleHTML(result.out,result.ok?null:friendlyErr(result.err));
+    if(result.system){help.hidden=false;help.className='practice-feedback';help.textContent='No answer check this time. Your code is unchanged. Check your connection and run again.';$('#practice-buddy').innerHTML=brickBuddy('thinking');btn.disabled=false;btn.textContent='Run & check';return;}
     const ok=result.ok && result.concept?.ok;
     help.hidden=false;help.className='practice-feedback '+(ok?'pass':'retry');
     help.textContent=ok?'You got the idea! '+card.why:result.ok?result.concept?.feedback||'Try the hint.':friendlyErr(result.err);

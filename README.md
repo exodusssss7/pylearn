@@ -74,3 +74,15 @@ App code is available under the [MIT license](LICENSE).
 - Guided practice has Back / Next skill controls. Your saved code draft is kept when you switch skills.
 
 No accounts, analytics, paid service, build step or new third-party runtime dependency was added. Clearing browser storage removes local progress and preferences.
+
+### New in v1.7
+
+A stability pass, with the same course and local progress:
+
+- Stop works while Python's first download is still pending. Time limits cover the download as well as execution; a stopped, failed or timed-out worker can be restarted.
+- A missing Python runtime or answer checker is not marked as a wrong answer. Code stays unchanged and Run becomes available again.
+- The answer checker is reused within each worker session. Failed audio downloads can recover on a later tap.
+- Restricted or full browser storage falls back to the current page's memory, with a visible warning. This is not persistent storage or a backup: closing/reloading the page loses unsaved session changes.
+- Short-screen answer feedback keeps Try again and Skip reachable. Feedback buttons get keyboard focus. Buddy pages have more bottom space, and reduced-motion also disables smooth scrolling.
+
+Python still requires internet for its initial runtime/checker download. There is no new offline installation or cloud sync.
