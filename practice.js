@@ -53,7 +53,7 @@ async function playSound(name, preview = false) {
   } catch(e) { /* Audio is optional; learning must work even if it is blocked. */ }
 }
 document.addEventListener('pointerdown', unlockAudio, {passive:true});
-document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#sheetBtn')) playSound('tap'); });
+document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('#sheetBtn') && !document.querySelector('.celebrate')) playSound('tap'); });
 function toggleSound() {
   soundOn = !soundOn;
   try { localStorage.setItem('pylearn-sound', soundOn ? 'on' : 'off'); } catch(e) {}

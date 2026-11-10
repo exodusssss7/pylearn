@@ -1,4 +1,4 @@
-# pylearn v1.2
+# pylearn v1.3
 
 Python from zero in small, interactive steps.
 
@@ -8,10 +8,10 @@ Python from zero in small, interactive steps.
 Every lesson begins with a plain-language concept introduction and a symbol guide. Lessons include common mistakes, worked examples, live Python runs, output prediction, code blanks, tap-to-order code and typing challenges. Start any unit or lesson, or follow the suggested order. Skipping ahead shows a non-blocking suggestion to complete earlier lessons first. Search the course map using standard Python topic names. Progress, XP and day streak are saved in this browser.
 
 ## Limits
-Twelve units are available, not a complete Python course. Typed challenges check Python syntax-tree structure, not exact message wording. Different messages, spelling and capitalization inside strings are accepted. Python instruction names and variable references still follow Python case rules. These checks are educational, not a proof that every possible solution is correct. Hints are available after mistakes; automatic easier replacement exercises are not implemented. Files use a real but temporary Python filesystem, reset on each Run. They are not saved to the device or available for download. Text-output playground only: no graphics or package installation. input() reads from a local answer sheet before execution, not a live terminal dialogue. Python downloads from jsDelivr on first use, so internet is required. Clearing browser storage removes progress. There are no accounts, cloud sync, backend or paid services. Not a secure sandbox for other people's untrusted code.
+Twelve units are available, not a complete Python course. Typed challenges check Python syntax-tree structure, not exact message wording. Different messages, spelling and capitalization inside strings are accepted. Python instruction names and variable references still follow Python case rules. These checks are educational, not a proof that every possible solution is correct. Hints are available after mistakes; automatic easier replacement exercises are not implemented. Files use a real but temporary Python filesystem, reset on each Run. They are not saved to the device or available for download. Text-output playground only: no graphics or package installation. input() reads from a local answer sheet before execution, not a live terminal dialogue. Python downloads from jsDelivr on first use, so internet is required. Clearing browser storage removes progress. There are no accounts, cloud sync, backend or paid services. See SECURITY.md for the v1.3 security review and remaining limits. Not a secure sandbox for other people's untrusted code.
 
 ## Built with
-Plain HTML, CSS and JavaScript; Pyodide 0.29.0 in a Web Worker; Nunito from Google Fonts. Hosted on GitHub Pages.
+Plain HTML, CSS and JavaScript; Pyodide 0.29.0 in a Web Worker; locally served Nunito fonts. Hosted on GitHub Pages.
 
 ## License
 MIT for the app code. Pyodide and fonts retain their own licenses.
@@ -63,3 +63,6 @@ Unit and lesson titles use standard Python terms. The course search finds units 
 
 ## Ranks in v1.2
 Ranks use unique completed lessons: Bronze (0), Silver (5), Gold (15), Platinum (30), Diamond (50), Master (75), Legendary (96). Existing completed lessons count automatically. Replays still earn XP but do not advance rank. The header badge opens rank details, and crossing a threshold at lesson completion shows an original SVG badge reveal and a rising four-note chime made from the existing CC0 effect. Mute and reduced-motion preferences are respected. Rank animation changes transform and opacity only; actual phone frame rate depends on the device.
+
+## Rank-meter audio in v1.3
+Each first-time lesson completion plays a rising rank-fill sample while the meter advances, including completions that do not change tier. The sample is an adapted/time-stretched maximize_005.ogg from Kenney Interface Sounds 1.0, CC0. A promotion adds the four-note chime after the fill. Replays do not fill the rank meter. Mute applies to both effects. The source is pre-produced interface audio, not claimed to be a real-world field recording.

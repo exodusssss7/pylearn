@@ -12,7 +12,8 @@ function getPyodide() {
 }
 
 onmessage = async (e) => {
-  const { id, code, rule, inputs = [] } = e.data;
+  const { id, code, rule, inputs = [] } = e.data || {};
+  if(!Number.isSafeInteger(id)||typeof code!=='string'||code.length>100000||!Array.isArray(inputs)||inputs.length>1000){postMessage({id,ok:false,out:'',err:'Invalid or oversized practice program.'});return}
   try {
     const pyodide = await getPyodide();
     let inputIndex = 0;
@@ -32,7 +33,7 @@ _os.chdir("/home/pyodide/pylearn-work")`);
       const scope = pyodide.toPy({});
       let concept = null;
       if (rule) {
-        const validator = await fetch("concept-check.py?v=0.9").then(r => { if (!r.ok) throw Error("Checker unavailable"); return r.text(); });
+        const validator = await fetch("https://exodusssss7.github.io/pylearn/concept-check.py?v=1.3").then(r => { if (!r.ok) throw Error("Checker unavailable"); return r.text(); });
         scope.set("_source", code); scope.set("_rule", rule);
         await pyodide.runPythonAsync(validator, { globals: scope });
         const feedback = await pyodide.runPythonAsync("check_concept(_source, _rule)", { globals: scope });
@@ -43,7 +44,7 @@ _os.chdir("/home/pyodide/pylearn-work")`);
       postMessage({ id, ok: true, out: out.join("\n"), concept });
     } catch (err) {
       // Trim the traceback to the useful Python error line
-      const msg = String(err && err.message ? err.message : err);
+      const msg = String(err && err.message ? err.message : err).slice(0,16000);
       const lines = msg.split("\n").filter((l) => l.trim());
       let friendly = lines[lines.length - 1] || "Something went wrong";
       const errLine = lines.find((l) => /Error|Exception/.test(l));

@@ -18,12 +18,20 @@ function rankProgress(count=state.done.length,animate=false,oldCount=count){
  return `<div class="rank-progress" style="--rank-color:${rank.color}"><div class="rank-progress-label"><strong>${rank.name}</strong><span>${rank.next?`${count} / ${end} lessons to ${rank.next.name}`:'96 / 96 lessons - top rank'}</span></div><div class="rank-meter" role="progressbar" aria-label="Rank progress" aria-valuemin="${start}" aria-valuemax="${end}" aria-valuenow="${count}"><i class="${animate?'rank-meter-advance':''}" style="--rank-from:${from};--rank-to:${fraction};transform:scaleX(${fraction})"></i></div></div>`;
 }
 function rankDetails(){return `<section class="rank-details"><h2>Your rank</h2><div class="rank-profile-badge">${rankBadge(currentRank(),'medium')}</div>${rankProgress()}<p>Complete different lessons to climb. Replays earn XP but do not count twice. Earlier progress already counts.</p><ol>${RANKS.map(r=>`<li>${rankBadge(r)}<strong>${r.name}</strong><span>${r.at} lessons</span>${state.done.length>=r.at?'<span aria-label="Reached">✓</span>':''}</li>`).join('')}</ol></section>`}
-async function playRankSound(){
+// Sampled rising effect follows the bar's 250ms delay and 900ms fill.
+async function playRankFill(promoted=false){
  if(!soundOn)return;const request=++soundRequest;unlockAudio();if(!audioContext)return;
  try{
-  sounds.correct ||= soundBytes('correct').then(bytes=>bytes?audioContext.decodeAudioData(bytes.slice(0)):null);
-  const buffer=await sounds.correct;if(!buffer||!soundOn||request!==soundRequest)return;
+  const load=name=>sounds[name] ||= soundBytes(name).then(bytes=>bytes?audioContext.decodeAudioData(bytes.slice(0)):null);
+  const [fill,chime]=await Promise.all([load('rank-fill'),promoted?load('correct'):null]);
+  if(!fill||!soundOn||request!==soundRequest)return;
   for(const source of activeSounds){try{source.stop()}catch(e){}}
-  [0,4,7,12].forEach((semitones,i)=>{const source=audioContext.createBufferSource(),gain=audioContext.createGain();source.buffer=buffer;source.soundName='rank';source.playbackRate.value=Math.pow(2,semitones/12);const at=audioContext.currentTime+i*.15;gain.gain.setValueAtTime(.19,at);gain.gain.exponentialRampToValueAtTime(.001,at+.42);source.connect(gain);gain.connect(audioContext.destination);activeSounds.add(source);source.onended=()=>{activeSounds.delete(source);source.disconnect();gain.disconnect()};source.start(at);source.stop(at+.45)});
+  const now=audioContext.currentTime;
+  function sample(buffer,name,at,rate,gainValue,duration){const source=audioContext.createBufferSource(),gain=audioContext.createGain();source.buffer=buffer;source.soundName=name;source.playbackRate.value=rate;gain.gain.setValueAtTime(gainValue,at);if(duration)gain.gain.exponentialRampToValueAtTime(.001,at+duration);source.connect(gain);gain.connect(audioContext.destination);activeSounds.add(source);source.onended=()=>{activeSounds.delete(source);source.disconnect();gain.disconnect()};source.start(at);if(duration)source.stop(at+duration)}
+  sample(fill,'rank-fill',now+.25,1,.42);
+  if(promoted&&chime)[0,4,7,12].forEach((n,i)=>sample(chime,'rank',now+1.18+i*.15,Math.pow(2,n/12),.19,.42));
  }catch(e){} // Optional audio must never block the lesson.
 }
+function playRankSound(){return playRankFill(true)}
+// Prepare after interaction, never during initial page load.
+document.addEventListener('pointerdown',()=>{if(!soundOn)return;unlockAudio();if(audioContext&&!sounds['rank-fill'])sounds['rank-fill']=soundBytes('rank-fill').then(bytes=>bytes?audioContext.decodeAudioData(bytes.slice(0)):null).catch(()=>null)},{passive:true});

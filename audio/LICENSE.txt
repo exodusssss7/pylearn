@@ -20,3 +20,8 @@
 
 	Follow on Twitter for updates:
 	http://twitter.com/KenneyNL
+v1.3 rank-fill.ogg: adapted from Audio/maximize_005.ogg in Kenney Interface Sounds 1.0 (CC0).
+Time-stretched with short fades for the rank progress meter. No live oscillator synthesis.
+Source: https://opengameart.org/content/interface-sounds
+Archive: https://opengameart.org/sites/default/files/kenney_interfaceSounds.zip
+The pack is pre-produced interface audio; real-world field-recording provenance is not claimed.

@@ -1,7 +1,7 @@
-/* pylearn v1.2 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v1.3 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v1.2";
+const VERSION = "v1.3";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -15,13 +15,14 @@ function loadState() {
     clean.done=Array.isArray(clean.done)?[...new Set(clean.done.filter(id=>typeof id==='string' && /^l(?:[1-9]|[1-8][0-9]|9[0-6])$/.test(id)))]:[];
     for(const key of ['xp','streak'])clean[key]=Number.isFinite(clean[key])&&clean[key]>=0?Math.floor(clean[key]):0;
     clean.bestLesson=clean.bestLesson && typeof clean.bestLesson==='object' && !Array.isArray(clean.bestLesson)?clean.bestLesson:{};
-    return clean;
+    const best={};for(const [id,n] of Object.entries(clean.bestLesson))if(/^l(?:[1-9]|[1-8][0-9]|9[0-6])$/.test(id)&&Number.isFinite(n)&&n>=0)best[id]=Math.floor(n);
+    return {xp:clean.xp,streak:clean.streak,done:clean.done,bestLesson:best,lastDay:typeof clean.lastDay==='string'&&/^\d{4}-\d{1,2}-\d{1,2}$/.test(clean.lastDay)?clean.lastDay:null};
   } catch (e) { return { ...DEFAULT_STATE }; }
 }
 function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(state)); } catch(e) { toast("Storage is unavailable. Progress lasts only until you close this page."); } }
 
 /* ---------- python runner (worker) ---------- */
-let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0;
+let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0, workerSource;
 function hideRunControl(){document.getElementById('run-status')?.remove()}
 function stopPython(){
   pyWorker?.terminate();pyWorker=null;pyReady=false;hideRunControl();
@@ -30,9 +31,13 @@ function stopPython(){
 function showRunControl(){
   hideRunControl();const bar=document.createElement('div');bar.id='run-status';bar.setAttribute('role','status');bar.innerHTML=`<span>${pyReady?'Python is running':'Loading Python, then running'}</span><button type="button" id="stop-python">Stop</button>`;document.body.appendChild(bar);document.getElementById('stop-python').onclick=stopPython;
 }
-function ensureWorker() {
+async function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=1.2");
+  workerSource ||= fetch('py-worker.js?v=1.3').then(r=>{if(!r.ok)throw Error('Worker unavailable');return r.text()}).catch(e=>{workerSource=null;throw e});
+  const source=await workerSource;if(pyWorker)return;
+  // Blob workers inherit this page's CSP, unlike separate network workers on Pages.
+  const blobURL=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
+  pyWorker = new Worker(blobURL);URL.revokeObjectURL(blobURL);
   const worker=pyWorker;
   pyWorker.onerror = () => {
     if(pyWorker!==worker)return;
@@ -52,7 +57,9 @@ async function runPython(code, rule, suppliedInputs) {
   let inputs = suppliedInputs;
   if (!Array.isArray(inputs) && needsInput(code)) inputs = await requestInputs();
   if (inputs === null) return {ok:false,cancelled:true,out:"",err:"Run cancelled. Your code is unchanged."};
-  ensureWorker();
+  if(typeof code!=='string'||code.length>100000)return {ok:false,out:'',err:'Code is too large. Keep practice programs under 100,000 characters.'};
+  try{await ensureWorker()}catch(e){return {ok:false,out:'',err:'Python could not load. Check your connection and try again.'}}
+  if(Object.keys(pyPending).length)return {ok:false,out:'',err:'A program is already running. Stop it or wait before running again.'};
   return new Promise((resolve) => {
     const id = ++pySeq;
     const timer = setTimeout(() => {
@@ -91,7 +98,7 @@ function toast(msg) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.remove("show"), 2200);
 }
-function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function esc(s) { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 function todayKey() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
 
 /* syntax coloring - single pass so inserted markup is never re-matched */
@@ -156,7 +163,7 @@ function topbarHTML() {
   return `<div class="topbar">
     <div class="logo"><img src="icon.svg" alt=""><span><span class="py">py</span>learn</span></div>
     <div class="spacer"></div>
-    <button class="rank-header" onclick="renderProfile()" aria-label="${currentRank().name} rank. View ranks" title="${currentRank().name}">${rankBadge(currentRank())}</button>
+    <button class="rank-header" data-action="ranks" aria-label="${currentRank().name} rank. View ranks" title="${currentRank().name}">${rankBadge(currentRank())}</button>
     <div class="stat streak"><span class="ico">🔥</span>${state.streak}</div>
     <div class="stat xp"><span class="ico">⚡</span>${state.xp}</div>
   </div>`;
@@ -516,7 +523,7 @@ function finishLesson() {
   saveState();
   const rank=currentRank();
   const rankedUp=rank.index>previousRank.index;
-  if(rankedUp)playRankSound();else playSound("finish");
+  if(firstTime)playRankFill(rankedUp);else playSound("finish");
   confetti();
   app.innerHTML = `<div class="view">
     <div class="celebrate step-anim">
@@ -560,8 +567,8 @@ function renderPlayground() {
     ${topbarHTML()}
     <div class="pad">
       <div class="pg-title">Playground 🛝</div><p class="pg-file-note">Practice files are temporary: every Run starts fresh. Write and read within the same program. No phone files are accessed or saved.</p>
-      <button class="btn ghost small" onclick="renderPractice()" style="margin:12px 0">Guided practice</button>
-      <div class="pg-sub">Real Python with text output. input() uses an answer sheet before Run; graphics and package installation are not supported.</div>
+      <button class="btn ghost small" data-action="practice" style="margin:12px 0">Guided practice</button>
+      <div class="pg-sub">Real Python with text output. input() uses an answer sheet before Run. Run only code you trust, and never enter secrets. Python can use web APIs: this is not a security sandbox.</div>
       <div class="editor-wrap"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">playground.py</span></div><textarea class="editor" id="pged" spellcheck="false" autocomplete="off" autocapitalize="off" style="min-height:170px">name = "you"\nfor i in range(3):\n    print("Hi " + name + "!", i + 1)</textarea></div>
       <div class="pg-actions">
         <button class="btn run-btn" id="pgrun">▶ Run</button>
@@ -622,7 +629,7 @@ function renderProfile() {
         Learn Python in tiny steps. Real Python runs in your browser -<br>
         Progress is saved on this device. Python loads from a CDN.
       </div>
-      <div style="text-align:center;margin-top:14px"><button class="btn small ghost" onclick="toggleSound()">Sound ${soundOn ? "on" : "off"}</button><p style="font-size:12px;color:var(--muted);margin-top:12px">Sound effects: Kenney, Interface Sounds (CC0).<br>Free for personal and commercial use.</p><button class="danger-link" id="reset">Reset all progress</button></div>
+      <div style="text-align:center;margin-top:14px"><button class="btn small ghost" data-action="sound">Sound ${soundOn ? "on" : "off"}</button><p style="font-size:12px;color:var(--muted);margin-top:12px">Sound effects: Kenney, Interface Sounds (CC0).<br>Free for personal and commercial use.</p><button class="danger-link" id="reset">Reset all progress</button></div>
     </div>
     ${navHTML("me")}
   </div>`;
@@ -653,4 +660,5 @@ function renderProfile() {
 /* ---------- boot ---------- */
 renderHome();
 installPolish();
+document.addEventListener('click',e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action==='ranks')renderProfile();if(action==='practice')renderPractice();if(action==='sound')toggleSound()});
 console.log("pylearn " + VERSION);
