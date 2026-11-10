@@ -99,7 +99,7 @@ function renderPractice(index = practiceIndex) {
   bindNav();
   $('#skill').onchange = e => renderPractice(+e.target.value);
   $('#skill-search').oninput=e=>{
-    const query=e.target.value.toLowerCase().trim();const matches=PRACTICE.map((c,i)=>({c,i})).filter(({c})=>(c.name+' '+c.intro+' '+c.rule).toLowerCase().includes(query));
+    const query=e.target.value.toLowerCase().trim().replace(/\bclasses\b/g,'class').replace(/\bdictionaries\b/g,'dictionar').replace(/\b(loops|files|lists|strings|functions|objects|modules|imports|errors|records)\b/g,w=>w.slice(0,-1));const matches=PRACTICE.map((c,i)=>({c,i})).filter(({c})=>(c.name+' '+c.intro+' '+c.rule).toLowerCase().includes(query));
     $('#skill').innerHTML=matches.length?`<option value="" disabled selected>Choose from ${matches.length} matches</option>`+matches.map(({c,i})=>`<option value="${i}">${i+1}. ${c.name}</option>`).join(''):'<option>No matching skills</option>';
     $('#skill').disabled=!matches.length;
   };
