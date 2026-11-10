@@ -2,6 +2,8 @@
 import ast
 
 def check_concept(source, rule):
+    if rule.startswith(("record_", "module_", "project_")):
+        return check_v09(source, rule)
     if rule.startswith(("file_", "error_", "class_")):
         return check_v08(source, rule)
     tree = ast.parse(source)
@@ -435,3 +437,153 @@ def check_v08(source, rule):
         hints={'class_make':'Define a class with a string attribute. Create an instance with ClassName() and print its attribute using a dot.', 'class_attribute':'Create two instances of a class with a string default. Change the attribute on only the first instance and print the attribute on both.', 'class_method':'Define a method with one self parameter that prints self.attribute. Create an instance and call its method with no arguments.', 'class_init':'Define __init__(self, value) and assign self.attribute = value. Create an instance with a string and print its attribute.', 'class_update':'Set a string attribute in __init__, then use a method with one extra parameter to change that same attribute. Call it with different text and print the attribute.', 'class_return':'Store a string in __init__. Return nonempty text + self.attribute from a method, then print the instance method call.', 'class_two':'Use __init__ for a numeric attribute and a method adding 1 to it. Create two differently valued instances, update only the first and print both attributes.', 'class_project':'Store a name in __init__, update it in a method, and return joined text in another method. Make two differently named instances, update only the first and print both greeting calls.'}
         return ret(good,hints[rule])
     return 'Unknown exercise.'
+
+def check_v09(source,rule):
+    tree=ast.parse(source);nodes=list(ast.walk(tree))
+    def name(n,v):return isinstance(n,ast.Name) and n.id==v
+    def const(n,v):return isinstance(n,ast.Constant) and n.value==v
+    def text(n):return isinstance(n,ast.Constant) and isinstance(n.value,str) and bool(n.value.strip())
+    def positive(n):return isinstance(n,ast.Constant) and isinstance(n.value,(int,float)) and not isinstance(n.value,bool) and n.value>0
+    def call(n,v):return isinstance(n,ast.Call) and name(n.func,v)
+    def attribute(n,obj,key):return isinstance(n,ast.Attribute) and name(n.value,obj) and n.attr==key
+    def sub(n,base,key):return isinstance(n,ast.Subscript) and base(n.value) and const(n.slice,key)
+    def walk(body):return [n for st in body for n in ast.walk(st)]
+    def prints(body):return [n for n in walk(body) if call(n,'print')]
+    def shown(body,pred):return any(pred(a) for p in prints(body) for a in p.args)
+    def record(n):
+        if not isinstance(n,ast.Dict):return False
+        fields={k.value:v for k,v in zip(n.keys,n.values) if isinstance(k,ast.Constant)}
+        return text(fields.get('title')) and positive(fields.get('pages'))
+    def recordlist(n):return isinstance(n,ast.List) and len(n.elts)>=2 and all(record(e) for e in n.elts)
+    assignments=[n for n in tree.body if isinstance(n,ast.Assign)]
+    values={t.id:s.value for s in assignments for t in s.targets if isinstance(t,ast.Name)}
+    lists={k:v for k,v in values.items() if recordlist(v)}
+    def resolve(n):return values.get(n.id,n) if isinstance(n,ast.Name) else n
+    module_names={a.asname or a.name:a.name for n in tree.body if isinstance(n,ast.Import) for a in n.names}
+    from_names={a.asname or a.name:(n.module,a.name) for n in tree.body if isinstance(n,ast.ImportFrom) for a in n.names}
+    def modulecall(n,mod,func):return isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and isinstance(n.func.value,ast.Name) and module_names.get(n.func.value.id)==mod and n.func.attr==func
+    def title0(n,base):return sub(n,lambda x:sub(x,base,0),'title')
+    if rule.startswith('record_'):
+        good=False
+        for var,lst in lists.items():
+            islist=lambda n:name(n,var)
+            loops=[n for n in tree.body if isinstance(n,ast.For) and islist(n.iter) and isinstance(n.target,ast.Name)]
+            if rule=='record_make':good |= shown(tree.body,islist)
+            if rule=='record_read':good |= shown(tree.body,lambda n:title0(n,islist))
+            if rule=='record_loop':good |= any(shown(l.body,lambda n:sub(n,lambda x:name(x,l.target.id),'title')) for l in loops)
+            if rule=='record_update':
+                old=next(v.value for k,v in zip(lst.elts[0].keys,lst.elts[0].values) if const(k,'pages'))
+                update=any(positive(s.value) and s.value.value!=old and any(sub(t,lambda n:sub(n,islist,0),'pages') for t in s.targets) for s in assignments)
+                append=any(isinstance(n,ast.Call) and attribute(n.func,var,'append') and len(n.args)==1 and record(n.args[0]) for n in nodes)
+                good |= update and append and shown(tree.body,lambda n:sub(n,lambda x:sub(x,islist,0),'pages')) and shown(tree.body,lambda n:call(n,'len') and len(n.args)==1 and islist(n.args[0]))
+            if rule=='record_filter':
+                counts=[next(v.value for k,v in zip(d.keys,d.values) if const(k,'pages')) for d in lst.elts]
+                for l in loops:
+                    for b in l.body:
+                        if not isinstance(b,ast.If):continue
+                        c=b.test
+                        good |= min(counts)<=25<max(counts) and isinstance(c,ast.Compare) and sub(c.left,lambda x:name(x,l.target.id),'pages') and len(c.ops)==1 and isinstance(c.ops[0],ast.Gt) and const(c.comparators[0],25) and shown(b.body,lambda n:sub(n,lambda x:name(x,l.target.id),'title'))
+            if rule=='record_total':
+                for l in loops:
+                    for s in l.body:
+                        if not (isinstance(s,ast.Assign) and isinstance(s.value,ast.BinOp) and isinstance(s.value.op,ast.Add) and isinstance(s.value.left,ast.Name)):continue
+                        total=s.value.left.id
+                        good |= any(name(t,total) for t in s.targets) and const(values.get(total),0) and sub(s.value.right,lambda n:name(n,l.target.id),'pages') and shown(tree.body[tree.body.index(l)+1:],lambda n:name(n,total))
+        return '' if good else 'Use a list of at least two dictionaries with nonempty string title and positive numeric pages. '+{'record_make':'Print the list.','record_read':'Print list[0]["title"].','record_loop':'Loop over the list and print the current record["title"].','record_update':'Change the first pages field, append a valid record, and print the changed pages and list length.','record_filter':'Include records above and at/below 25 pages. Print each title only inside the loop\'s if record["pages"] > 25.','record_total':'Start a total at 0, add each record["pages"] inside the loop, and print the total after it.'}[rule]
+    if rule.startswith('module_'):
+        good=False
+        if rule in ('module_import','module_alias'):
+            good=any(modulecall(a,'math','sqrt') and len(a.args)==1 and positive(a.args[0]) and (rule!='module_alias' or a.func.value.id!='math') for p in prints(tree.body) for a in p.args)
+        if rule=='module_ceil':
+            for p in prints(tree.body):
+                for a in p.args:
+                    if not (modulecall(a,'math','ceil') and len(a.args)==1 and isinstance(a.args[0],ast.BinOp) and isinstance(a.args[0].op,ast.Div)):continue
+                    d=a.args[0];good |= isinstance(d.left,ast.Name) and isinstance(d.right,ast.Name) and positive(resolve(d.left)) and positive(resolve(d.right))
+        if rule=='module_from':good=any(isinstance(a,ast.Call) and isinstance(a.func,ast.Name) and from_names.get(a.func.id)==('math','sqrt') and len(a.args)==1 and positive(a.args[0]) for p in prints(tree.body) for a in p.args)
+        encoded={t.id for s in assignments if modulecall(s.value,'json','dumps') and len(s.value.args)==1 and isinstance(s.value.args[0],ast.Name) and s.value.args[0].id in lists for t in s.targets if isinstance(t,ast.Name)}
+        if rule=='module_dumps':good=shown(tree.body,lambda n:isinstance(n,ast.Name) and n.id in encoded)
+        if rule=='module_loads':
+            decoded={t.id for s in assignments if modulecall(s.value,'json','loads') and len(s.value.args)==1 and isinstance(s.value.args[0],ast.Name) and s.value.args[0].id in encoded for t in s.targets if isinstance(t,ast.Name)}
+            good=shown(tree.body,lambda n:title0(n,lambda x:isinstance(x,ast.Name) and x.id in decoded))
+        return '' if good else {'module_import':'Import math and print math.sqrt of a positive number.','module_alias':'Import math as your_alias, then print your_alias.sqrt of a positive number.','module_from':'Use from math import sqrt and print a direct sqrt call with a positive number.','module_ceil':'Import math, store two positive numbers, then print math.ceil(first / second).','module_dumps':'Import json, store at least two valid book records, assign json.dumps(records) to a variable and print that variable.','module_loads':'Serialize your record list with json.dumps, decode that string with json.loads and print restored[0]["title"].'}[rule]
+    # Recognize an actual same-filename JSON file round trip.
+    def roundtrips(data_pred):
+        written=[];decoded=[]
+        for st in tree.body:
+            if not isinstance(st,ast.With):continue
+            for item in st.items:
+                c=item.context_expr
+                if not (call(c,'open') and len(c.args)==2 and text(c.args[0]) and isinstance(item.optional_vars,ast.Name)):continue
+                file=item.optional_vars.id;path=c.args[0].value
+                if const(c.args[1],'w'):
+                    for n in walk(st.body):
+                        if isinstance(n,ast.Call) and attribute(n.func,file,'write') and len(n.args)==1 and modulecall(n.args[0],'json','dumps') and len(n.args[0].args)==1 and data_pred(n.args[0].args[0]):written.append(path)
+                if const(c.args[1],'r') and path in written:
+                    for s in st.body:
+                        if not isinstance(s,ast.Assign):continue
+                        for n in ast.walk(s.value):
+                            if modulecall(n,'json','loads') and len(n.args)==1 and isinstance(n.args[0],ast.Call) and attribute(n.args[0].func,file,'read'):
+                                decoded.extend((t.id,s.value) for t in s.targets if isinstance(t,ast.Name))
+        return decoded
+    if rule=='project_file':
+        restored=roundtrips(lambda n:isinstance(n,ast.Name) and n.id in lists)
+        return '' if any(shown(tree.body,lambda n:title0(n,lambda x:name(x,var))) for var,val in restored) else 'Write json.dumps(your record list) in a with/open "w" block, reopen the same filename with "r", decode read() with json.loads and print the first restored title.'
+    good=False
+    for cls in [n for n in tree.body if isinstance(n,ast.ClassDef)]:
+        methods=[n for n in cls.body if isinstance(n,ast.FunctionDef)]
+        for init in methods:
+            if init.name!='__init__' or len(init.args.args)!=2:continue
+            me,param=[a.arg for a in init.args.args]
+            keys=[t.attr for st in init.body if isinstance(st,ast.Assign) and name(st.value,param) for t in st.targets if isinstance(t,ast.Attribute) and name(t.value,me)]
+            instances={t.id:st.value for st in assignments if call(st.value,cls.name) and len(st.value.args)==1 and recordlist(st.value.args[0]) for t in st.targets if isinstance(t,ast.Name)}
+            for key in keys:
+                totals=[];adders=[]
+                for m in methods:
+                    if not m.args.args:continue
+                    self_=m.args.args[0].arg
+                    if len(m.args.args)==1:
+                        for l in m.body:
+                            if not (isinstance(l,ast.For) and attribute(l.iter,self_,key) and isinstance(l.target,ast.Name)):continue
+                            for s in l.body:
+                                if not (isinstance(s,ast.Assign) and isinstance(s.value,ast.BinOp) and isinstance(s.value.op,ast.Add) and isinstance(s.value.left,ast.Name)):continue
+                                total=s.value.left.id
+                                start=any(isinstance(x,ast.Assign) and const(x.value,0) and any(name(t,total) for t in x.targets) for x in m.body[:m.body.index(l)])
+                                end=any(isinstance(x,ast.Return) and name(x.value,total) for x in m.body[m.body.index(l)+1:])
+                                if start and end and any(name(t,total) for t in s.targets) and sub(s.value.right,lambda n:name(n,l.target.id),'pages'):totals.append(m.name)
+                    if len(m.args.args)==3:
+                        title,pages=[a.arg for a in m.args.args[1:]]
+                        for n in walk(m.body):
+                            if not (isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and n.func.attr=='append' and attribute(n.func.value,self_,key) and len(n.args)==1 and isinstance(n.args[0],ast.Dict)):continue
+                            d={k.value:v for k,v in zip(n.args[0].keys,n.args[0].values) if isinstance(k,ast.Constant)}
+                            if name(d.get('title'),title) and name(d.get('pages'),pages):adders.append(m.name)
+                for obj in instances:
+                    base=lambda n:attribute(n,obj,key)
+                    if rule=='project_store':good |= shown(tree.body,lambda n:title0(n,base));continue
+                    total_shown=lambda o:shown(tree.body,lambda n:isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and name(n.func.value,o) and n.func.attr in totals and not n.args)
+                    if rule=='project_total':good |= total_shown(obj);continue
+                    # Input title, conversion, matching handler, positive check, object addition.
+                    title_reads={t.id for st in assignments if call(st.value,'input') for t in st.targets if isinstance(t,ast.Name)}
+                    validation=False;length_shown=False
+                    for tr in tree.body:
+                        if not isinstance(tr,ast.Try):continue
+                        handler=any(name(h.type,'ValueError') and shown(h.body,text) for h in tr.handlers)
+                        for s in tr.body:
+                            if not (isinstance(s,ast.Assign) and call(s.value,'int') and len(s.value.args)==1 and call(s.value.args[0],'input')):continue
+                            pagevars={t.id for t in s.targets if isinstance(t,ast.Name)}
+                            for branch in tr.orelse:
+                                if not isinstance(branch,ast.If):continue
+                                test=branch.test
+                                if not (isinstance(test,ast.Compare) and isinstance(test.left,ast.Name) and test.left.id in pagevars and len(test.ops)==1 and isinstance(test.ops[0],ast.Gt) and const(test.comparators[0],0)):continue
+                                added=any(isinstance(n,ast.Call) and isinstance(n.func,ast.Attribute) and name(n.func.value,obj) and n.func.attr in adders and len(n.args)==2 and isinstance(n.args[0],ast.Name) and n.args[0].id in title_reads and name(n.args[1],test.left.id) for n in walk(branch.body))
+                                validation |= handler and added and shown(branch.orelse,text)
+                                length_shown |= shown(branch.body,lambda n:call(n,'len') and len(n.args)==1 and base(n.args[0]))
+                    if rule=='project_add':good |= validation and length_shown;continue
+                    if rule=='project_final':
+                        for restored,val in roundtrips(base):
+                            if not (call(val,cls.name) and len(val.args)==1 and modulecall(val.args[0],'json','loads')):continue
+                            report=False
+                            for l in tree.body:
+                                if not (isinstance(l,ast.For) and attribute(l.iter,restored,key) and isinstance(l.target,ast.Name)):continue
+                                report |= any(any(sub(a,lambda n:name(n,l.target.id),'title') for a in p.args) and any(sub(a,lambda n:name(n,l.target.id),'pages') for a in p.args) for p in prints(l.body))
+                            good |= validation and report and total_shown(restored)
+    return '' if good else {'project_store':'Store a book list in an instance attribute via __init__, create a tracker with two valid records and print its first title.','project_total':'Store two records in your tracker. In a method, total the pages from self.books and return after the loop. Print that instance method result.','project_add':'Store two records, define an add method appending title/pages, read title then int(input()), catch ValueError, add only inside the success branch if pages > 0, and print the length. Give a message for nonpositive pages.','project_final':'Check the stages against the hint: tracker storage, add and returning total methods, title/pages inputs, ValueError recovery, positive-page validation, JSON file round trip into a new tracker, then its title/pages loop and total method result.'}.get(rule,'Unknown project exercise.')

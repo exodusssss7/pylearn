@@ -1,7 +1,7 @@
-/* pylearn v0.8 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v0.9 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.8";
+const VERSION = "v0.9";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -110,7 +110,10 @@ UNITS.push({id:"u6",title:"Unit 6: Input & numbers",heading:"Let your program li
 UNITS.push({id:"u7",title:"Unit 7: Practice files",heading:"Write it, read it, build on it",sub:"7 lessons. Real text files in a fresh temporary workspace each Run.",lessons:UNIT7_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
 UNITS.push({id:"u8",title:"Unit 8: Handle errors",heading:"Give problems a useful reply",sub:"7 lessons. Targeted recovery, success-only work and cleanup.",lessons:UNIT8_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
 UNITS.push({id:"u9",title:"Unit 9: Your classes",heading:"Make objects with their own data",sub:"8 lessons. From a blueprint to two independent learning buddies.",lessons:UNIT9_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
-const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS,...UNIT5_LESSONS,...UNIT6_LESSONS,...UNIT7_LESSONS,...UNIT8_LESSONS,...UNIT9_LESSONS];
+UNITS.push({id:"u10",title:"Unit 10: Record lists",heading:"A collection of useful facts",sub:"6 lessons. Book records, field lookups, filtering and page totals.",lessons:UNIT10_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+UNITS.push({id:"u11",title:"Unit 11: Modules & imports",heading:"Use tools Python already has",sub:"6 lessons. math, import styles and a JSON round trip.",lessons:UNIT11_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+UNITS.push({id:"u12",title:"Unit 12: Reading tracker",heading:"Put your pieces together",sub:"5 stages. Build, validate, write, reload and report.",lessons:UNIT12_LESSONS.map(({id,title,icon})=>({id,title,icon}))});
+const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS,...UNIT5_LESSONS,...UNIT6_LESSONS,...UNIT7_LESSONS,...UNIT8_LESSONS,...UNIT9_LESSONS,...UNIT10_LESSONS,...UNIT11_LESSONS,...UNIT12_LESSONS];
 const TOTAL_LESSONS = ALL_LESSONS.length;
 const LESSON_L1 = FIRST_LESSON;
 
