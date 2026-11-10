@@ -1,4 +1,4 @@
-# pylearn v1.3
+# PyPerky v1.4
 
 Python from zero in small, interactive steps.
 
@@ -20,7 +20,7 @@ MIT for the app code. Pyodide and fonts retain their own licenses.
 Ninety-one guided skill cards plus a free-code playground. Mistakes get specific guidance for quotes, parentheses, names and indentation. Correct answers in a row raise the same chime along a major scale, capped at one octave to avoid shrill pitches. A wrong answer resets it; the streak is per session. Tap, retry and completion keep separate effects. Sound can be muted in Profile; the setting stays on this device. Effects: Kenney Interface Sounds, CC0, downloaded from https://opengameart.org/content/interface-sounds . Original license is included in audio/LICENSE.txt. These are pre-produced interface effects, not claimed to be field recordings.
 
 ## Block companion
-Original pylearn SVG/CSS artwork reacts to correct answers, retries, combos, code runs and completion. Character motion uses transform and opacity, follows the display refresh rate, and respects reduced-motion preferences. Actual frame rate depends on the device. No LEGO artwork, branding or affiliation.
+Original PyPerky SVG/CSS artwork reacts to correct answers, retries, combos, code runs and completion. Character motion uses transform and opacity, follows the display refresh rate, and respects reduced-motion preferences. Actual frame rate depends on the device. No LEGO artwork, branding or affiliation.
 
 ## Unit 2
 10 lessons: joining strings, character counts, string indexing, making lists, list indexing and length, replacing an item, append, list loops, nested conditions, and a guest-list project. Lessons introduce terms before using them; existing progress is preserved.
@@ -66,3 +66,6 @@ Ranks use unique completed lessons: Bronze (0), Silver (5), Gold (15), Platinum 
 
 ## Rank-meter audio in v1.3
 Each first-time lesson completion plays a rising rank-fill sample while the meter advances, including completions that do not change tier. The sample is an adapted/time-stretched maximize_005.ogg from Kenney Interface Sounds 1.0, CC0. A promotion adds the four-note chime after the fill. Replays do not fill the rank meter. Mute applies to both effects. The source is pre-produced interface audio, not claimed to be a real-world field recording.
+
+## PyPerky name and logo in v1.4
+The original brick companion is the app logo, favicon and install icon. It is not LEGO artwork and has no LEGO affiliation. Repository and site path remain pylearn so existing links are not moved. Internal browser keys (pylearn-v1, pylearn-sound, pylearn-draft-*) and lesson IDs are intentionally unchanged to preserve progress. The same-origin browser data is still local to the device.

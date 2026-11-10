@@ -1,7 +1,7 @@
-/* pylearn v1.3 - bite-sized Python lessons, real Python in the browser */
+/* PyPerky v1.4 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v1.3";
+const VERSION = "v1.4";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -33,7 +33,7 @@ function showRunControl(){
 }
 async function ensureWorker() {
   if (pyWorker) return;
-  workerSource ||= fetch('py-worker.js?v=1.3').then(r=>{if(!r.ok)throw Error('Worker unavailable');return r.text()}).catch(e=>{workerSource=null;throw e});
+  workerSource ||= fetch('py-worker.js?v=1.4').then(r=>{if(!r.ok)throw Error('Worker unavailable');return r.text()}).catch(e=>{workerSource=null;throw e});
   const source=await workerSource;if(pyWorker)return;
   // Blob workers inherit this page's CSP, unlike separate network workers on Pages.
   const blobURL=URL.createObjectURL(new Blob([source],{type:'text/javascript'}));
@@ -161,7 +161,7 @@ const ICONS = {
 
 function topbarHTML() {
   return `<div class="topbar">
-    <div class="logo"><img src="icon.svg" alt=""><span><span class="py">py</span>learn</span></div>
+    <div class="logo"><img src="icon.svg?v=1.4" alt=""><span><span class="py">Py</span>Perky</span></div>
     <div class="spacer"></div>
     <button class="rank-header" data-action="ranks" aria-label="${currentRank().name} rank. View ranks" title="${currentRank().name}">${rankBadge(currentRank())}</button>
     <div class="stat streak"><span class="ico">🔥</span>${state.streak}</div>
@@ -625,7 +625,7 @@ function renderProfile() {
         <div class="stat-box"><div class="num" style="color:var(--primary)">🎯 ${UNITS.length}</div><div class="lbl">Units</div></div>
       </div>
       <div class="about-box">
-        pylearn ${VERSION}<br>
+        PyPerky ${VERSION}<br>
         Learn Python in tiny steps. Real Python runs in your browser -<br>
         Progress is saved on this device. Python loads from a CDN.
       </div>
@@ -661,4 +661,4 @@ function renderProfile() {
 renderHome();
 installPolish();
 document.addEventListener('click',e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action==='ranks')renderProfile();if(action==='practice')renderPractice();if(action==='sound')toggleSound()});
-console.log("pylearn " + VERSION);
+console.log("PyPerky " + VERSION);

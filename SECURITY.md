@@ -29,3 +29,6 @@ GitHub Pages supplies HTTPS and HSTS, but this repository does not control HTTP 
 - https://docs.github.com/en/pages/getting-started-with-github-pages/securing-your-github-pages-site-with-https
 - https://github.com/googlefonts/nunito/blob/main/OFL.txt
 - https://opengameart.org/content/interface-sounds
+
+## v1.4 branding update
+The display name and original companion icons changed to PyPerky. Hosting path, CSP scope and storage keys remain unchanged. No new third-party services or scripts were added. The v1.3 security limits still apply.

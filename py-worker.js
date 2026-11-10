@@ -1,4 +1,4 @@
-/* pylearn: runs Python in a Web Worker via Pyodide, off the main thread.
+/* PyPerky: runs Python in a Web Worker via Pyodide, off the main thread.
    If code hangs (infinite loop), the main thread kills and respawns this worker. */
 const PYODIDE_BASE = "https://cdn.jsdelivr.net/pyodide/v0.29.0/full/";
 importScripts(PYODIDE_BASE + "pyodide.js");
@@ -33,7 +33,7 @@ _os.chdir("/home/pyodide/pylearn-work")`);
       const scope = pyodide.toPy({});
       let concept = null;
       if (rule) {
-        const validator = await fetch("https://exodusssss7.github.io/pylearn/concept-check.py?v=1.3").then(r => { if (!r.ok) throw Error("Checker unavailable"); return r.text(); });
+        const validator = await fetch("https://exodusssss7.github.io/pylearn/concept-check.py?v=1.4").then(r => { if (!r.ok) throw Error("Checker unavailable"); return r.text(); });
         scope.set("_source", code); scope.set("_rule", rule);
         await pyodide.runPythonAsync(validator, { globals: scope });
         const feedback = await pyodide.runPythonAsync("check_concept(_source, _rule)", { globals: scope });
