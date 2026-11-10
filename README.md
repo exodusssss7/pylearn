@@ -64,3 +64,13 @@ App code is available under the [MIT license](LICENSE).
   <strong>Your next little step is waiting.</strong><br><br>
   <a href="https://exodusssss7.github.io/pylearn/">Open PyPerky and start learning →</a>
 </div>
+
+### New in v1.6
+
+- A short, skippable first-run welcome. Existing learners keep their path; the tour can be reopened from Profile.
+- Four original animated buddies: Perky, Mint, Nova and Pip. Choose one during welcome or change it in Profile. Respects reduced-motion settings.
+- Wrong answers offer **Try again** or **Skip step**. No forced rewrite, and no XP for a skipped step. Finishing the lesson still counts as finishing the path; unanswered steps are listed separately in **Review**.
+- Review opens the exact skipped question. Answer it correctly to clear it. The queue, buddy choice, progress and code drafts stay on the current browser/device.
+- Guided practice has Back / Next skill controls. Your saved code draft is kept when you switch skills.
+
+No accounts, analytics, paid service, build step or new third-party runtime dependency was added. Clearing browser storage removes local progress and preferences.

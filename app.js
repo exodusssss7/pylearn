@@ -1,7 +1,7 @@
-/* PyPerky v1.5 - bite-sized Python lessons, real Python in the browser */
+/* PyPerky v1.6 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v1.5";
+const VERSION = "v1.6";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -212,7 +212,7 @@ function renderHome() {
   const completed=u.lessons.filter(l=>state.done.includes(l.id)).length;
   return `<details class="unit-section unit-compact" id="${u.id}" ${u.id===activeUnit.id?'open':''}><summary><span class="unit-summary-copy"><span class="unit-kicker">${u.title.split(":")[0]}</span><strong>${u.heading || (u.id==='u1'?'Python from zero':'A place for everything')}</strong><span class="unit-summary-meta">${completed} of ${u.lessons.length} complete</span></span><span class="unit-chevron" aria-hidden="true">⌄</span></summary><div class="unit-description">${u.sub}<div><button class="btn small ghost start-unit" data-start-unit="${u.id}">Start unit</button></div></div><div class="path">${nodes}</div></details>`;
   }).join('');
-  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><section class="home-overview"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="continue-card"><div class="step-kicker">${nextLesson?'YOUR NEXT STEP':'BEGINNER PATH COMPLETE'}</div><h2>${nextLesson?esc(nextLesson.title):'96 little steps. Yours.'}</h2><p>${nextLesson?'Pick up where you left off. Every lesson is open. Follow this order or choose any topic.':'Replay a lesson or use practice to keep building.'}</p><div class="course-meter" aria-label="${state.done.length} of ${TOTAL_LESSONS} lessons complete"><i style="transform:scaleX(${state.done.length/TOTAL_LESSONS})"></i></div><button class="btn" id="continue-course">${nextLesson?'Continue learning':'Open practice'}</button></div></section><section class="home-course"><div class="map-label">YOUR COURSE <span>${state.done.length} / ${TOTAL_LESSONS}</span></div><label class="step-kicker" for="course-search">FIND A PYTHON TOPIC</label><input id="course-search" class="skill-search" type="search" placeholder="Search units and lessons: loops, classes..." autocomplete="off"><p id="course-search-status" class="course-search-status" role="status">All 12 units are open. Start wherever you want.</p><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div><div class="course-grid">${sections}</div></section></div>${navHTML("home")}</div>`;
+  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><section class="home-overview"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="continue-card"><div class="step-kicker">${nextLesson?'YOUR NEXT STEP':'BEGINNER PATH COMPLETE'}</div><h2>${nextLesson?esc(nextLesson.title):'96 little steps. Yours.'}</h2><p>${nextLesson?'Pick up where you left off. Every lesson is open. Follow this order or choose any topic.':'Replay a lesson or use practice to keep building.'}</p><div class="course-meter" aria-label="${state.done.length} of ${TOTAL_LESSONS} lessons complete"><i style="transform:scaleX(${state.done.length/TOTAL_LESSONS})"></i></div><button class="btn" id="continue-course">${nextLesson?'Continue learning':'Open practice'}</button></div>${reviewItems().length?`<button class="review-card" data-action="review"><span>↺</span><div><strong>${reviewItems().length} skipped ${reviewItems().length===1?"step":"steps"}</strong><small>No pressure. Come back when you're ready.</small></div><b>Review →</b></button>`:""}</section><section class="home-course"><div class="map-label">YOUR COURSE <span>${state.done.length} / ${TOTAL_LESSONS}</span></div><label class="step-kicker" for="course-search">FIND A PYTHON TOPIC</label><input id="course-search" class="skill-search" type="search" placeholder="Search units and lessons: loops, classes..." autocomplete="off"><p id="course-search-status" class="course-search-status" role="status">All 12 units are open. Start wherever you want.</p><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div><div class="course-grid">${sections}</div></section></div>${navHTML("home")}</div>`;
 
   $("#continue-course").onclick=()=>nextLesson?startLesson(nextLesson.id):renderPractice();
   $("#course-search").oninput=e=>{
@@ -234,10 +234,11 @@ function renderHome() {
 /* ---------- lesson player ---------- */
 let L = null; // active lesson session
 
-function startLesson(id = "l1") {
+function startLesson(id = "l1", reviewIndex = null) {
   const lesson = ALL_LESSONS.find(l => l.id === id);
   if (!lesson) return;
   L = { id, title: lesson.title, steps: lesson.steps, i: 0, earned: 0, mistakes: 0, stepMistakes: 0, awarded: new Set() };
+  if(Number.isInteger(reviewIndex) && lesson.steps[reviewIndex]){L.i=reviewIndex;L.review=true;}
   renderLessonShell();
   renderStep();
 }
@@ -247,7 +248,7 @@ function renderLessonShell() {
   app.innerHTML = `<div class="view">
     <div class="lesson-head">
       <button class="quit-btn" id="quit" aria-label="Leave lesson">✕</button>
-      <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
+      <div class="progress-track"><div class="progress-fill" id="pfill"></div></div><span class="step-count" id="step-count"></span>
     </div>
     ${ALL_LESSONS.slice(0,ALL_LESSONS.findIndex(l=>l.id===L.id)).some(l=>!state.done.includes(l.id))?`<aside class="prereq-note"><strong>Starting ahead? That is fine.</strong><span>I suggest completing previous lessons first if this topic feels unfamiliar. You can continue here now.</span></aside>`:""}
     <div class="lesson-body" id="lbody"></div>
@@ -277,6 +278,7 @@ function setProgress() {
   const pct = Math.round((L.i / L.steps.length) * 100);
   $("#pfill").style.transform = `scaleX(${pct / 100})`;
   $("#pfill").parentElement.setAttribute("aria-label", `Step ${L.i+1} of ${L.steps.length}`);
+  $("#step-count").textContent=L.review?"Review":`${L.i+1} / ${L.steps.length}`;
 }
 
 function stepHead(s) {
@@ -290,13 +292,15 @@ function consoleHTML(out, err) {
 }
 
 function showSheet(good, why, onContinue) {
-  if (!good) { L.stepMistakes++; if (L.stepMistakes >= 2) why = "Let's slow down. Use this hint, then try the same step again.\n" + why; }
+  if (!good) { L.stepMistakes++; if (L.stepMistakes >= 2) why = "You can try again, or skip this step and come back later.\n" + why; enableSkip(); }
   playSound(good ? "correct" : "retry");
   const sheet = $("#sheet");
   sheet.className = "sheet " + (good ? "good" : "bad");
-  sheet.innerHTML = `<div class="buddy-feedback">${brickBuddy(good ? (correctCombo >= 3 ? "combo" : "happy") : "oops")}<div class="buddy-feedback-copy"><div class="sheet-title">${good ? (correctCombo >= 3 ? correctCombo + " in a row!" : "Nice!") : "Let's try again"}</div>
+  sheet.innerHTML = `<div class="buddy-feedback">${brickBuddy(good ? (correctCombo >= 3 ? "combo" : "happy") : "oops")}<div class="buddy-feedback-copy"><div class="sheet-title">${good ? (correctCombo >= 3 ? correctCombo + " in a row!" : "Nice!") : "Not quite. That's okay."}</div>
     <div class="sheet-why">${esc(why || "+10 XP")}</div>
-    </div></div><button class="btn ${good ? "green" : ""}" id="sheetBtn">${good ? "Continue" : "Got it"}</button>`;
+    </div></div><div class="feedback-actions"><button class="btn ${good ? "green" : ""}" id="sheetBtn">${good ? "Continue" : "Try again"}</button>${!good?'<button class="btn ghost" id="sheetSkip">Skip step →</button>':''}</div>${!good?'<p class="skip-note">Skip without XP. This step will wait in Review.</p>':''}`;
+  sheet.setAttribute('role','region');sheet.setAttribute('aria-label',good?'Correct answer':'Answer feedback');
+  if(!good) $('#sheetSkip').onclick=()=>{sheet.classList.remove('show');skipStep();};
   requestAnimationFrame(() => sheet.classList.add("show"));
   $("#sheetBtn").onclick = () => {
     sheet.classList.remove("show");
@@ -497,9 +501,10 @@ function friendlyErr(err) {
   return raw;
 }
 
-function award(n) { if (!L.awarded.has(L.i)) { L.earned += n; L.awarded.add(L.i); } }
+function award(n) { removeReview(L.id,L.i); if (!L.awarded.has(L.i)) { L.earned += n; L.awarded.add(L.i); } }
 
 function nextStep() {
+  if(L.review){state.xp+=L.earned;saveState();renderReview();return;}
   L.i++;
   L.stepMistakes = 0;
   if (L.i >= L.steps.length) finishLesson();
@@ -529,7 +534,8 @@ function finishLesson() {
     <div class="celebrate step-anim">
       ${rankedUp?`<div class="rank-up"><span class="rank-up-kicker">RANK UP</span><div class="rank-reveal"><div class="rank-orbit" aria-hidden="true"></div>${rankBadge(rank,'large')}</div><h2>${rank.name}</h2><p>${previousRank.name} → ${rank.name}. ${state.done.length} lessons completed.</p></div>`:`<div class="buddy-finish">${brickBuddy("celebrate")}</div>`}
       <h1>${firstTime && state.done.length === TOTAL_LESSONS ? "All lessons complete!" : "Lesson complete!"}</h1>
-      <p>You wrote real Python. That is the whole secret - tiny steps, done daily.</p>
+      <p>${reviewItems().some(r=>r.id===L.id)?"You kept moving. Skipped steps are waiting in Review when you feel ready.":"Small steps add up. You made time to learn today."}</p>
+      ${reviewItems().length?`<button class="btn ghost" data-action="review">Review skipped steps (${reviewItems().length})</button>`:""}
       <div class="xp-pill">⚡ +${L.earned} XP</div>
       ${rankProgress(state.done.length,firstTime,previousCount)}
       ${!firstTime?`<p class="rank-replay-note">Replay complete. Finish a different lesson to advance your rank.</p>`:""}
@@ -613,11 +619,11 @@ function renderProfile() {
     ${topbarHTML()}
     <div class="pad">
       <div class="profile-card">
-        <div class="avatar">🐍</div>
-        <h2>Python learner</h2>
+        <div class="profile-buddy">${brickBuddy("happy")}</div>
+        <h2>Your buddy, ${selectedBuddy().name}</h2><button class="btn small ghost" data-action="buddies">Change buddy</button>
         <div class="lvl">Rank: ${level}</div>
       </div>
-      ${rankDetails()}
+      ${rankDetails()}<button class="btn ghost" data-action="review">Review skipped steps (${reviewItems().length})</button><button class="btn ghost small tour-replay" data-action="welcome">Quick tour</button>
       <div class="stat-grid">
         <div class="stat-box"><div class="num" style="color:#ff9f43">🔥 ${state.streak}</div><div class="lbl">Day streak</div></div>
         <div class="stat-box"><div class="num" style="color:var(--accent)">⚡ ${state.xp}</div><div class="lbl">Total XP</div></div>
@@ -639,7 +645,7 @@ function renderProfile() {
     bg.className = "modal-bg";
     bg.innerHTML = `<div class="modal">
       <h3>Reset learning progress?</h3>
-      <p>XP, streak and lesson progress will be wiped from this device. Your code drafts and sound setting will stay.</p>
+      <p>XP, streak, lesson progress and skipped-step review will be wiped from this device. Your code drafts and sound setting will stay.</p>
       <div class="row">
         <button class="btn ghost" id="keep">Keep</button>
         <button class="btn" id="wipe" style="background:var(--red);box-shadow:0 5px 0 var(--red-deep)">Reset</button>
@@ -648,7 +654,7 @@ function renderProfile() {
     document.body.appendChild(bg);
     $("#keep", bg).onclick = () => bg.remove();
     $("#wipe", bg).onclick = () => {
-      try{localStorage.removeItem("pylearn-v1")}catch(e){}
+      try{localStorage.removeItem("pylearn-v1");localStorage.removeItem("pylearn-review-v1")}catch(e){}
       state = { ...DEFAULT_STATE, done: [] };
       bg.remove();
       toast("Progress reset");
@@ -658,7 +664,7 @@ function renderProfile() {
 }
 
 /* ---------- boot ---------- */
-renderHome();
+bootLearning();
 installPolish();
-document.addEventListener('click',e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action==='ranks')renderProfile();if(action==='practice')renderPractice();if(action==='sound')toggleSound()});
+document.addEventListener('click',e=>{const action=e.target.closest('[data-action]')?.dataset.action;if(action==='ranks')renderProfile();if(action==='practice')renderPractice();if(action==='sound')toggleSound();if(action==='review')renderReview();if(action==='buddies')renderBuddies();if(action==='welcome')renderWelcome(0,true)});
 console.log("PyPerky " + VERSION);
