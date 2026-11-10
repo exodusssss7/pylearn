@@ -1,4 +1,4 @@
-# pylearn v0.9
+# pylearn v1.0
 
 Python from zero in small, interactive steps.
 
@@ -54,3 +54,6 @@ Original pylearn SVG/CSS artwork reacts to correct answers, retries, combos, cod
 
 ## Unit 12
 A five-stage reading-tracker project: instance storage, a total method, one validated input addition, a JSON practice-file round trip, and the combined report. Files remain temporary and input uses the pre-run answer sheet. This completes the current beginner path, not the whole Python language. JSON examples decode data created by the same program, not arbitrary untrusted uploads.
+
+## App polish in v1.0
+A Continue card opens the next unfinished lesson; the course map expands by unit. Python editors keep local drafts and offer indentation, newline, punctuation and copy controls. Input answers are not saved. Practice skills can be searched. Running code can be stopped, and the Python worker restarts for the next Run. Sound assets load on interaction rather than startup. Background motion and mobile blur effects were removed; optional mascot and correct-answer motion still respect reduced-motion preferences. Actual phone frame rate depends on device and browser. Lesson count remains 96.

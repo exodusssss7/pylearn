@@ -1,7 +1,7 @@
-/* pylearn v0.9 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v1.0 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v0.9";
+const VERSION = "v1.0";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -11,25 +11,41 @@ let state = loadState();
 function loadState() {
   try {
     const s = JSON.parse(localStorage.getItem("pylearn-v1"));
-    return Object.assign({}, DEFAULT_STATE, s || {});
+    const clean = Object.assign({}, DEFAULT_STATE, s && typeof s==='object' ? s : {});
+    clean.done=Array.isArray(clean.done)?[...new Set(clean.done.filter(id=>typeof id==='string' && /^l(?:[1-9]|[1-8][0-9]|9[0-6])$/.test(id)))]:[];
+    for(const key of ['xp','streak'])clean[key]=Number.isFinite(clean[key])&&clean[key]>=0?Math.floor(clean[key]):0;
+    clean.bestLesson=clean.bestLesson && typeof clean.bestLesson==='object' && !Array.isArray(clean.bestLesson)?clean.bestLesson:{};
+    return clean;
   } catch (e) { return { ...DEFAULT_STATE }; }
 }
 function saveState() { try { localStorage.setItem("pylearn-v1", JSON.stringify(state)); } catch(e) { toast("Storage is unavailable. Progress lasts only until you close this page."); } }
 
 /* ---------- python runner (worker) ---------- */
 let pyWorker = null, pyReady = false, pyPending = {}, pySeq = 0;
+function hideRunControl(){document.getElementById('run-status')?.remove()}
+function stopPython(){
+  pyWorker?.terminate();pyWorker=null;pyReady=false;hideRunControl();
+  for(const [id,p] of Object.entries(pyPending)){clearTimeout(p.timer);p.resolve({ok:false,out:'',err:'Stopped by you. Your code is unchanged. Run again when ready.'});delete pyPending[id]}
+}
+function showRunControl(){
+  hideRunControl();const bar=document.createElement('div');bar.id='run-status';bar.setAttribute('role','status');bar.innerHTML=`<span>${pyReady?'Python is running':'Loading Python, then running'}</span><button type="button" id="stop-python">Stop</button>`;document.body.appendChild(bar);document.getElementById('stop-python').onclick=stopPython;
+}
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=0.8");
+  pyWorker = new Worker("py-worker.js?v=1.0");
+  const worker=pyWorker;
   pyWorker.onerror = () => {
+    if(pyWorker!==worker)return;
+    hideRunControl();
     for (const id of Object.keys(pyPending)) { const p = pyPending[id]; clearTimeout(p.timer); p.resolve({ ok: false, out: "", err: "Python could not load. Check your connection and try again." }); delete pyPending[id]; }
-    pyWorker.terminate(); pyWorker = null; pyReady = false;
+    pyWorker?.terminate(); pyWorker = null; pyReady = false;
   };
   pyWorker.onmessage = (e) => {
+    if(pyWorker!==worker)return;
     const m = e.data;
     if (m.id === -1) return;
     const p = pyPending[m.id];
-    if (p) { clearTimeout(p.timer); delete pyPending[m.id]; p.resolve(m); }
+    if (p) { clearTimeout(p.timer); delete pyPending[m.id]; pyReady=true; hideRunControl(); p.resolve(m); }
   };
 }
 async function runPython(code, rule, suppliedInputs) {
@@ -42,11 +58,13 @@ async function runPython(code, rule, suppliedInputs) {
     const timer = setTimeout(() => {
       // hung (infinite loop) - kill and respawn the worker
       delete pyPending[id];
-      pyWorker.terminate(); pyWorker = null; pyReady = false;
+      pyWorker?.terminate(); pyWorker = null; pyReady = false;
+      hideRunControl();
       resolve({ ok: false, out: "", err: "Run stopped. It may be a loop or a slow Python download. Try again." });
     }, pyReady ? 9000 : 60000);
     pyPending[id] = { resolve, timer };
     pyWorker.postMessage({ id, code, rule, inputs:inputs || [] });
+    showRunControl();
   });
 }
 
@@ -145,6 +163,7 @@ function navHTML(active) {
 function bindNav() {
   $$(".navbtn").forEach((b) => (b.onclick = () => {
     const v = b.dataset.nav;
+    if (Object.keys(pyPending).length) stopPython();
     if (v === "home") renderHome();
     if (v === "play") renderPractice();
     if (v === "me") renderProfile();
@@ -157,6 +176,8 @@ function renderHome() {
   navView = "home";
   const pathLessons = UNITS.flatMap(u=>u.lessons);
   let pathIndex=0;
+  const nextLesson = ALL_LESSONS.find(l=>!state.done.includes(l.id));
+  const activeUnit = UNITS.find(u=>u.lessons.some(l=>l.id===nextLesson?.id)) || UNITS.at(-1);
   const sections=UNITS.map(u=>{
   const nodes = u.lessons.map((l, i) => {
     const done = state.done.includes(l.id);
@@ -167,16 +188,18 @@ function renderHome() {
     const bubble = !done && unlocked ? '<div class="start-bubble">START</div>' : "";
     return `<div class="node-wrap ${cls}">
       ${bubble}
-      <button class="node ${cls}" data-lesson="${l.id}" data-unlocked="${unlocked}" data-done="${done}">${icon}</button>
+      <button aria-label="${esc(l.title)}${done ? ", completed" : unlocked ? ", ready" : ", locked"}" class="node ${cls}" data-lesson="${l.id}" data-unlocked="${unlocked}" data-done="${done}">${icon}</button>
       <div class="node-label">${l.title}</div>
     </div>`;
   }).join("");
 
-  return `<section class="unit-section" id="${u.id}"><div class="unit-card"><div class="unit-kicker">${u.title}</div><div class="unit-title">${u.heading || (u.id==='u1'?'Python from zero':'A place for everything')}</div><div class="unit-sub">${u.sub}</div></div><div class="course-progress">${u.lessons.filter(l=>state.done.includes(l.id)).length} / ${u.lessons.length} lessons complete</div><div class="path">${nodes}</div></section>`;
+  const completed=u.lessons.filter(l=>state.done.includes(l.id)).length;
+  return `<details class="unit-section unit-compact" id="${u.id}" ${u.id===activeUnit.id?'open':''}><summary><span class="unit-summary-copy"><span class="unit-kicker">${u.title}</span><strong>${u.heading || (u.id==='u1'?'Python from zero':'A place for everything')}</strong><span class="unit-summary-meta">${completed} of ${u.lessons.length} complete</span></span><span class="unit-chevron" aria-hidden="true">⌄</span></summary><div class="unit-description">${u.sub}</div><div class="path">${nodes}</div></details>`;
   }).join('');
-  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div>${sections}</div>${navHTML("home")}</div>`;
+  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="continue-card"><div class="step-kicker">${nextLesson?'YOUR NEXT STEP':'BEGINNER PATH COMPLETE'}</div><h2>${nextLesson?esc(nextLesson.title):'96 little steps. Yours.'}</h2><p>${nextLesson?'Pick up where you left off. Earlier lessons stay open for review.':'Replay a lesson or use practice to keep building.'}</p><div class="course-meter" aria-label="${state.done.length} of ${TOTAL_LESSONS} lessons complete"><i style="transform:scaleX(${state.done.length/TOTAL_LESSONS})"></i></div><button class="btn" id="continue-course">${nextLesson?'Continue learning':'Open practice'}</button></div><div class="map-label">YOUR COURSE <span>${state.done.length} / ${TOTAL_LESSONS}</span></div><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div>${sections}</div>${navHTML("home")}</div>`;
 
-  $$("[data-unit]").forEach(b=>b.onclick=()=>document.getElementById(b.dataset.unit).scrollIntoView({behavior:"smooth",block:"start"}));
+  $("#continue-course").onclick=()=>nextLesson?startLesson(nextLesson.id):renderPractice();
+  $$("[data-unit]").forEach(b=>b.onclick=()=>{const unit=document.getElementById(b.dataset.unit);unit.open=true;unit.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})});
   $$(".node").forEach((n) => (n.onclick = () => {
     if (n.dataset.unlocked !== "true") { toast("Finish the previous lesson first, then this one opens."); return; }
     startLesson(n.dataset.lesson);
@@ -199,7 +222,7 @@ function renderLessonShell() {
   navView = "lesson";
   app.innerHTML = `<div class="view">
     <div class="lesson-head">
-      <button class="quit-btn" id="quit">✕</button>
+      <button class="quit-btn" id="quit" aria-label="Leave lesson">✕</button>
       <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
     </div>
     <div class="lesson-body" id="lbody"></div>
@@ -214,7 +237,7 @@ function confirmQuit() {
   bg.className = "modal-bg";
   bg.innerHTML = `<div class="modal">
     <h3>Quit this lesson?</h3>
-    <p>Your progress in this lesson will be lost.</p>
+    <p>Completed lessons stay saved. Typed code is kept as a local draft; this lesson restarts at its first step.</p>
     <div class="row">
       <button class="btn ghost" id="stay">Stay</button>
       <button class="btn" id="leave" style="background:var(--red);box-shadow:0 5px 0 var(--red-deep)">Quit</button>
@@ -222,12 +245,13 @@ function confirmQuit() {
   </div>`;
   document.body.appendChild(bg);
   $("#stay", bg).onclick = () => bg.remove();
-  $("#leave", bg).onclick = () => { bg.remove(); renderHome(); };
+  $("#leave", bg).onclick = () => { stopPython(); bg.remove(); renderHome(); };
 }
 
 function setProgress() {
   const pct = Math.round((L.i / L.steps.length) * 100);
   $("#pfill").style.transform = `scaleX(${pct / 100})`;
+  $("#pfill").parentElement.setAttribute("aria-label", `Step ${L.i+1} of ${L.steps.length}`);
 }
 
 function stepHead(s) {
@@ -236,7 +260,7 @@ function stepHead(s) {
 }
 function consoleHTML(out, err) {
   return `<div class="console"><div class="console-label">OUTPUT</div>
-    <div class="console-body">${err ? `<span class="err">${esc(err)}</span>` : esc(out) || '<span class="dim">(nothing printed)</span>'}</div>
+    <div class="console-body" role="status">${err ? `<span class="err">${esc(err)}</span>` : esc(out) || '<span class="dim">(nothing printed)</span>'}</div>
   </div>`;
 }
 
@@ -545,7 +569,7 @@ function renderPlayground() {
     $("#pgout").innerHTML = consoleHTML(r.out, r.ok ? null : friendlyErr(r.err));
     btn.disabled = false;
   };
-  $("#pgclear").onclick = () => { $("#pgout").innerHTML = ""; ed.value = ""; ed.focus(); };
+  $("#pgclear").onclick = () => { $("#pgout").innerHTML = ""; ed.value = ""; ed.dispatchEvent(new Event("input",{bubbles:true})); ed.focus(); };
 }
 
 /* ---------- profile ---------- */
@@ -581,8 +605,8 @@ function renderProfile() {
     const bg = document.createElement("div");
     bg.className = "modal-bg";
     bg.innerHTML = `<div class="modal">
-      <h3>Reset everything?</h3>
-      <p>XP, streak and lesson progress will be wiped from this device.</p>
+      <h3>Reset learning progress?</h3>
+      <p>XP, streak and lesson progress will be wiped from this device. Your code drafts and sound setting will stay.</p>
       <div class="row">
         <button class="btn ghost" id="keep">Keep</button>
         <button class="btn" id="wipe" style="background:var(--red);box-shadow:0 5px 0 var(--red-deep)">Reset</button>
@@ -591,7 +615,7 @@ function renderProfile() {
     document.body.appendChild(bg);
     $("#keep", bg).onclick = () => bg.remove();
     $("#wipe", bg).onclick = () => {
-      localStorage.removeItem("pylearn-v1");
+      try{localStorage.removeItem("pylearn-v1")}catch(e){}
       state = { ...DEFAULT_STATE, done: [] };
       bg.remove();
       toast("Progress reset");
@@ -602,4 +626,5 @@ function renderProfile() {
 
 /* ---------- boot ---------- */
 renderHome();
+installPolish();
 console.log("pylearn " + VERSION);

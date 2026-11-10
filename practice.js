@@ -7,12 +7,10 @@ const sounds = {};
 const activeSounds = new Set();
 const soundFiles = {};
 const CORRECT_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
-// Fetch early; decoding and playback use the audio context unlocked by a tap.
-for (const name of ['tap', 'correct', 'retry', 'finish']) {
-  soundFiles[name] = fetch('audio/' + name + '.ogg').then(r => {
-    if (!r.ok) throw new Error('Sound unavailable');
-    return r.arrayBuffer();
-  }).catch(() => null);
+// Audio is optional. Fetch on first interaction, not during page startup.
+let soundRequest=0;
+function soundBytes(name){
+  return soundFiles[name] ||= fetch('audio/'+name+'.ogg').then(r=>{if(!r.ok)throw Error('Sound unavailable');return r.arrayBuffer()}).catch(()=>null);
 }
 function unlockAudio() {
   if (!soundOn) return;
@@ -29,12 +27,13 @@ async function playSound(name, preview = false) {
     correctCombo++;
   }
   if (!soundOn) return;
+  const request=++soundRequest;
   unlockAudio();
   if (!audioContext) return;
   try {
-    if (!sounds[name]) sounds[name] = soundFiles[name].then(bytes => bytes ? audioContext.decodeAudioData(bytes.slice(0)) : null);
+    if (!sounds[name]) sounds[name] = soundBytes(name).then(bytes => bytes ? audioContext.decodeAudioData(bytes.slice(0)) : null);
     const buffer = await sounds[name];
-    if (!buffer || !soundOn) return;
+    if (!buffer || !soundOn || request!==soundRequest) return;
     // Feedback replaces a tap or older feedback, rather than piling up sounds.
     for (const playing of activeSounds) {
       if (name !== 'tap' || playing.soundName === 'tap') {
@@ -89,7 +88,7 @@ function renderPractice(index = practiceIndex) {
   app.innerHTML = `<div class="view">${topbarHTML()}<div class="pad">
     <div class="pg-title">Practice, your way</div><div class="pg-sub">Practice the idea, not the spelling of a sample message.</div>
     <div class="practice-tabs"><button class="btn small" id="guided">Guided</button><button class="btn small ghost" id="free">Free code</button></div>
-    <label class="step-kicker" for="skill">CHOOSE A SKILL</label>
+    <label class="step-kicker" for="skill-search">FIND A SKILL</label><input id="skill-search" class="skill-search" type="search" placeholder="Search 91 skills: loops, files, classes..." autocomplete="off"><label class="visually-hidden" for="skill">Choose a skill</label>
     <select id="skill" class="skill-select">${PRACTICE.map((c,i)=>`<option value="${i}" ${i===index?'selected':''}>${i+1}. ${c.name}</option>`).join('')}</select>
     <div class="practice-intro"><strong>${card.name}</strong><p>${card.intro}</p></div>
     <div class="step-prompt">${card.prompt}</div>
@@ -99,6 +98,11 @@ function renderPractice(index = practiceIndex) {
   </div>${navHTML('play')}</div>`;
   bindNav();
   $('#skill').onchange = e => renderPractice(+e.target.value);
+  $('#skill-search').oninput=e=>{
+    const query=e.target.value.toLowerCase().trim();const matches=PRACTICE.map((c,i)=>({c,i})).filter(({c})=>(c.name+' '+c.intro+' '+c.rule).toLowerCase().includes(query));
+    $('#skill').innerHTML=matches.length?`<option value="" disabled selected>Choose from ${matches.length} matches</option>`+matches.map(({c,i})=>`<option value="${i}">${i+1}. ${c.name}</option>`).join(''):'<option>No matching skills</option>';
+    $('#skill').disabled=!matches.length;
+  };
   $('#free').onclick = renderPlayground;
   $('#guided').onclick = () => $('#practice-editor').focus();
   $('#practice-hint').onclick = () => { const e=$('#practice-help');e.hidden=false;e.className='practice-feedback';e.textContent='One example. You can choose your own message:\n'+card.hint; };
