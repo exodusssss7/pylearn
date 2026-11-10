@@ -1,11 +1,11 @@
-# pylearn v1.0
+# pylearn v1.1
 
 Python from zero in small, interactive steps.
 
 ## Unit 1
 11 lessons: Say hello, Words & quotes, Numbers, Variables, Text + numbers, True or false, If, Else, Repeat with for, Counting with range, and a Countdown mini project.
 
-Every lesson begins with a plain-language concept introduction and a symbol guide. Lessons include common mistakes, worked examples, live Python runs, output prediction, code blanks, tap-to-order code and typing challenges. Complete lessons in order or replay completed lessons. Progress, XP and day streak are saved in this browser.
+Every lesson begins with a plain-language concept introduction and a symbol guide. Lessons include common mistakes, worked examples, live Python runs, output prediction, code blanks, tap-to-order code and typing challenges. Start any unit or lesson, or follow the suggested order. Skipping ahead shows a non-blocking suggestion to complete earlier lessons first. Search the course map using standard Python topic names. Progress, XP and day streak are saved in this browser.
 
 ## Limits
 Twelve units are available, not a complete Python course. Typed challenges check Python syntax-tree structure, not exact message wording. Different messages, spelling and capitalization inside strings are accepted. Python instruction names and variable references still follow Python case rules. These checks are educational, not a proof that every possible solution is correct. Hints are available after mistakes; automatic easier replacement exercises are not implemented. Files use a real but temporary Python filesystem, reset on each Run. They are not saved to the device or available for download. Text-output playground only: no graphics or package installation. input() reads from a local answer sheet before execution, not a live terminal dialogue. Python downloads from jsDelivr on first use, so internet is required. Clearing browser storage removes progress. There are no accounts, cloud sync, backend or paid services. Not a secure sandbox for other people's untrusted code.
@@ -57,3 +57,6 @@ A five-stage reading-tracker project: instance storage, a total method, one vali
 
 ## App polish in v1.0
 A Continue card opens the next unfinished lesson; the course map expands by unit. Python editors keep local drafts and offer indentation, newline, punctuation and copy controls. Input answers are not saved. Practice skills can be searched. Running code can be stopped, and the Python worker restarts for the next Run. Sound assets load on interaction rather than startup. Background motion and mobile blur effects were removed; optional mascot and correct-answer motion still respect reduced-motion preferences. Actual phone frame rate depends on device and browser. Lesson count remains 96.
+
+## Topic navigation in v1.1
+Unit and lesson titles use standard Python terms. The course search finds units and lessons by topic, including loops, functions, classes and exception handling. Every lesson is open from the start, with a friendly suggestion when earlier lessons are incomplete. Existing progress and drafts keep their original IDs.

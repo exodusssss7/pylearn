@@ -543,3 +543,9 @@ button:focus-visible,summary:focus-visible,select:focus-visible{outline:3px soli
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .unit-compact{margin-top:0!important}
 @media(max-width:600px){.bottomnav{backdrop-filter:none;background:#141821}}
+
+[hidden]{display:none!important}
+.node.available{background:#2b3052;border-color:#535d9b;box-shadow:0 7px 0 #1c2038;color:var(--text)}
+.start-unit{display:block;margin-top:16px;min-height:44px}
+.course-search-status{font-size:13px;color:var(--muted);margin:8px 0 20px}
+.prereq-note{margin:8px 16px 0;padding:12px 14px;border:1px solid #70602b;border-radius:12px;background:#29251a;font-size:13px;line-height:1.4;display:flex;flex-direction:column;gap:4px;color:#e4d6a4}

@@ -1,7 +1,7 @@
-/* pylearn v1.0 - bite-sized Python lessons, real Python in the browser */
+/* pylearn v1.1 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v1.0";
+const VERSION = "v1.1";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -32,7 +32,7 @@ function showRunControl(){
 }
 function ensureWorker() {
   if (pyWorker) return;
-  pyWorker = new Worker("py-worker.js?v=1.0");
+  pyWorker = new Worker("py-worker.js?v=1.1");
   const worker=pyWorker;
   pyWorker.onerror = () => {
     if(pyWorker!==worker)return;
@@ -134,6 +134,13 @@ UNITS.push({id:"u12",title:"Unit 12: Reading tracker",heading:"Put your pieces t
 const ALL_LESSONS = [FIRST_LESSON,...EXTRA_LESSONS,...UNIT2_LESSONS,...UNIT3_LESSONS,...UNIT4_LESSONS,...UNIT5_LESSONS,...UNIT6_LESSONS,...UNIT7_LESSONS,...UNIT8_LESSONS,...UNIT9_LESSONS,...UNIT10_LESSONS,...UNIT11_LESSONS,...UNIT12_LESSONS];
 const TOTAL_LESSONS = ALL_LESSONS.length;
 const LESSON_L1 = FIRST_LESSON;
+/* Standard Python topic names; stable lesson IDs preserve progress and drafts. */
+const TOPIC_TITLES=["print(): Text Output", "Strings and Quotation Marks", "Integers and Arithmetic", "Variables and Assignment", "print(): Strings and Numbers", "Booleans: True and False", "Conditional Statements: if", "Conditional Statements: else", "for Loops", "range()", "Project: for Loop Countdown", "String Concatenation", "String Length: len()", "String Indexing", "Lists", "List Indexing and Length", "List Item Assignment", "List append()", "for Loops over Lists", "Nested if Statements in Loops", "Project: Guest List", "Updating Variables", "Subtraction Operator", "Equality Operators: == and !=", "Comparison Operators: <, >, <=, >=", "Conditional Statements: elif", "Logical Operator: and", "Logical Operator: or", "Logical Operator: not", "while Loops", "break Statements", "Project: while Loop Countdown", "Function Definitions: def", "Function Calls and Reuse", "Function Parameters", "Multiple Function Parameters", "return Statements", "Local Variables and Scope", "Function Calls in for Loops", "Project: Functions", "Dictionaries", "Dictionary Key Lookup", "Dictionary Value Assignment", "Adding Dictionary Keys", "Dictionary Membership: in", "Dictionary get()", "Dictionary Key Iteration", "Project: Dictionaries", "input()", "input() Prompts", "Strings and Numeric Types", "Type Conversion: int()", "Floating-Point Numbers: float()", "Type Conversion: str()", "Multiplication Operator", "Division Operator", "Project: Input and Arithmetic", "File Writing: with and open()", "File Reading: read()", "Newline Escape: \\n", "File Append Mode", "File Line Iteration", "Counting File Lines", "Project: Text Files", "Exception Handling: try/except ValueError", "Control Flow after try/except", "Exception Handling: else", "Exception Handling: finally", "FileNotFoundError", "Multiple Exception Handlers", "Project: Exception Handling", "Classes and Instances", "Instance Attributes", "Instance Methods and self", "Object Initialization: __init__", "Method Parameters", "Method Return Values", "Independent Instance State", "Project: Classes and Objects", "Lists of Dictionaries", "Nested Indexing: Lists and Dictionaries", "Iterating over Lists of Dictionaries", "Adding and Updating Dictionary Records", "Filtering Lists of Dictionaries", "Project: Accumulating Record Totals", "Modules: import and math.sqrt()", "math.ceil()", "from Imports", "Import Aliases: as", "JSON Serialization: json.dumps()", "JSON Deserialization: json.loads()", "Project: Classes and List Attributes", "Project: Methods and Accumulation", "Project: Input Validation", "Project: JSON File Reading and Writing", "Final Project: Reading Tracker"];
+ALL_LESSONS.forEach((lesson,i)=>lesson.title=TOPIC_TITLES[i]);
+const UNIT_TOPICS=[["Python Basics", "print, strings, numbers, variables, booleans, if, else, for loops, range"], ["Strings and Lists", "string operations, concatenation, indexing, len, list methods, append, iteration"], ["Operators, Conditions and Loops", "arithmetic, comparison, boolean logic, and, or, not, elif, while, break"], ["Functions", "def, calls, parameters, return values, local variables, scope"], ["Dictionaries", "keys, values, dict, get, membership, iteration"], ["Input, Type Conversion and Arithmetic", "input, int, float, str, multiplication, division"], ["File Handling", "with, open, read, write, append, text files, newlines"], ["Exception Handling", "errors, try, except, else, finally, ValueError, FileNotFoundError, ZeroDivisionError"], ["Classes and Objects", "object oriented programming, OOP, instances, attributes, methods, self, __init__"], ["Lists of Dictionaries", "records, nested indexing, filtering, accumulation"], ["Modules, Imports and JSON", "import, from, as, math, sqrt, ceil, JSON, serialization, deserialization"], ["Final Project: Reading Tracker", "classes, methods, input validation, exception handling, JSON files"]];
+UNITS.forEach((unit,i)=>{unit.title=`Unit ${i+1}: ${UNIT_TOPICS[i][0]}`;unit.heading=UNIT_TOPICS[i][0];unit.keywords=UNIT_TOPICS[i][1];unit.lessons.forEach(l=>l.title=ALL_LESSONS.find(a=>a.id===l.id).title)});
+function topicSearchText(text){return text.toLowerCase().replace(/\bclasses\b/g,"class").replace(/\bdictionaries\b/g,"dictionary").replace(/\b(loops|files|lists|strings|functions|objects|modules|imports|errors|records|variables|operators|conditions|methods|attributes|parameters|exceptions)\b/g,w=>w.slice(0,-1)).trim()}
+
 
 /* ---------- views ---------- */
 const app = $("#app");
@@ -182,26 +189,35 @@ function renderHome() {
   const nodes = u.lessons.map((l, i) => {
     const done = state.done.includes(l.id);
     const absolute=pathIndex++;
-    const unlocked = absolute === 0 || state.done.includes(pathLessons[absolute - 1].id);
-    const cls = done ? "done" : unlocked ? "current" : "locked";
+    const unlocked = true;
+    const recommended = nextLesson?.id === l.id;
+    const cls = done ? "done" : recommended ? "current" : "available";
     const icon = done ? "⭐" : unlocked ? l.icon : "🔒";
-    const bubble = !done && unlocked ? '<div class="start-bubble">START</div>' : "";
+    const bubble = !done && recommended ? '<div class="start-bubble">START</div>' : "";
     return `<div class="node-wrap ${cls}">
       ${bubble}
-      <button aria-label="${esc(l.title)}${done ? ", completed" : unlocked ? ", ready" : ", locked"}" class="node ${cls}" data-lesson="${l.id}" data-unlocked="${unlocked}" data-done="${done}">${icon}</button>
-      <div class="node-label">${l.title}</div>
+      <button aria-label="${esc(l.title)}${done ? ", completed" : unlocked ? ", ready" : ", locked"}" class="node ${cls}" data-lesson="${l.id}" data-unlocked="true" data-done="${done}">${icon}</button>
+      <div class="node-label">${esc(l.title)}</div>
     </div>`;
   }).join("");
 
   const completed=u.lessons.filter(l=>state.done.includes(l.id)).length;
-  return `<details class="unit-section unit-compact" id="${u.id}" ${u.id===activeUnit.id?'open':''}><summary><span class="unit-summary-copy"><span class="unit-kicker">${u.title}</span><strong>${u.heading || (u.id==='u1'?'Python from zero':'A place for everything')}</strong><span class="unit-summary-meta">${completed} of ${u.lessons.length} complete</span></span><span class="unit-chevron" aria-hidden="true">⌄</span></summary><div class="unit-description">${u.sub}</div><div class="path">${nodes}</div></details>`;
+  return `<details class="unit-section unit-compact" id="${u.id}" ${u.id===activeUnit.id?'open':''}><summary><span class="unit-summary-copy"><span class="unit-kicker">${u.title.split(":")[0]}</span><strong>${u.heading || (u.id==='u1'?'Python from zero':'A place for everything')}</strong><span class="unit-summary-meta">${completed} of ${u.lessons.length} complete</span></span><span class="unit-chevron" aria-hidden="true">⌄</span></summary><div class="unit-description">${u.sub}<div><button class="btn small ghost start-unit" data-start-unit="${u.id}">Start unit</button></div></div><div class="path">${nodes}</div></details>`;
   }).join('');
-  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="continue-card"><div class="step-kicker">${nextLesson?'YOUR NEXT STEP':'BEGINNER PATH COMPLETE'}</div><h2>${nextLesson?esc(nextLesson.title):'96 little steps. Yours.'}</h2><p>${nextLesson?'Pick up where you left off. Earlier lessons stay open for review.':'Replay a lesson or use practice to keep building.'}</p><div class="course-meter" aria-label="${state.done.length} of ${TOTAL_LESSONS} lessons complete"><i style="transform:scaleX(${state.done.length/TOTAL_LESSONS})"></i></div><button class="btn" id="continue-course">${nextLesson?'Continue learning':'Open practice'}</button></div><div class="map-label">YOUR COURSE <span>${state.done.length} / ${TOTAL_LESSONS}</span></div><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div>${sections}</div>${navHTML("home")}</div>`;
+  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="continue-card"><div class="step-kicker">${nextLesson?'YOUR NEXT STEP':'BEGINNER PATH COMPLETE'}</div><h2>${nextLesson?esc(nextLesson.title):'96 little steps. Yours.'}</h2><p>${nextLesson?'Pick up where you left off. Every lesson is open. Follow this order or choose any topic.':'Replay a lesson or use practice to keep building.'}</p><div class="course-meter" aria-label="${state.done.length} of ${TOTAL_LESSONS} lessons complete"><i style="transform:scaleX(${state.done.length/TOTAL_LESSONS})"></i></div><button class="btn" id="continue-course">${nextLesson?'Continue learning':'Open practice'}</button></div><div class="map-label">YOUR COURSE <span>${state.done.length} / ${TOTAL_LESSONS}</span></div><label class="step-kicker" for="course-search">FIND A PYTHON TOPIC</label><input id="course-search" class="skill-search" type="search" placeholder="Search units and lessons: loops, classes..." autocomplete="off"><p id="course-search-status" class="course-search-status" role="status">All 12 units are open. Start wherever you want.</p><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div>${sections}</div>${navHTML("home")}</div>`;
 
   $("#continue-course").onclick=()=>nextLesson?startLesson(nextLesson.id):renderPractice();
+  $("#course-search").oninput=e=>{
+    const query=topicSearchText(e.target.value);let units=0,lessons=0;
+    UNITS.forEach(u=>{const section=document.getElementById(u.id);const unitMatch=query && topicSearchText(u.title+' '+u.keywords).includes(query);let count=0;
+      u.lessons.forEach(l=>{const node=section.querySelector(`[data-lesson="${l.id}"]`).closest('.node-wrap');const match=!query||unitMatch||topicSearchText(l.title).includes(query);node.hidden=!match;if(match)count++});
+      section.hidden=count===0;if(count){units++;lessons+=count}section.open=query?count>0:u.id===activeUnit.id;
+    });
+    $("#course-search-status").textContent=query?units?`${units} matching units, ${lessons} lessons. Every lesson is open.`:'No matching topics. Try a Python term such as loops, classes or files.':'All 12 units are open. Start wherever you want.';
+  };
+  $$("[data-start-unit]").forEach(b=>b.onclick=()=>{const unit=UNITS.find(u=>u.id===b.dataset.startUnit);const lesson=unit.lessons.find(l=>!state.done.includes(l.id))||unit.lessons[0];startLesson(lesson.id)});
   $$("[data-unit]").forEach(b=>b.onclick=()=>{const unit=document.getElementById(b.dataset.unit);unit.open=true;unit.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})});
   $$(".node").forEach((n) => (n.onclick = () => {
-    if (n.dataset.unlocked !== "true") { toast("Finish the previous lesson first, then this one opens."); return; }
     startLesson(n.dataset.lesson);
   }));
   bindNav();
@@ -225,6 +241,7 @@ function renderLessonShell() {
       <button class="quit-btn" id="quit" aria-label="Leave lesson">✕</button>
       <div class="progress-track"><div class="progress-fill" id="pfill"></div></div>
     </div>
+    ${ALL_LESSONS.slice(0,ALL_LESSONS.findIndex(l=>l.id===L.id)).some(l=>!state.done.includes(l.id))?`<aside class="prereq-note"><strong>Starting ahead? That is fine.</strong><span>I suggest completing previous lessons first if this topic feels unfamiliar. You can continue here now.</span></aside>`:""}
     <div class="lesson-body" id="lbody"></div>
     <div class="lesson-foot" id="lfoot"></div>
   </div>
