@@ -69,3 +69,7 @@ Each first-time lesson completion plays a rising rank-fill sample while the mete
 
 ## PyPerky name and logo in v1.4
 The original brick companion is the app logo, favicon and install icon. It is not LEGO artwork and has no LEGO affiliation. Repository and site path remain pylearn so existing links are not moved. Internal browser keys (pylearn-v1, pylearn-sound, pylearn-draft-*) and lesson IDs are intentionally unchanged to preserve progress. The same-origin browser data is still local to the device.
+
+## Responsive layout
+
+The app fills the available viewport. Phones use a single column, tablets show a wider course grid, and desktop screens put the course or editor beside its context. Navigation stays outside the scrolling content. Safe-area padding and the visual viewport keep controls reachable when a keyboard opens. Progress keys and the existing Pages address stay unchanged.

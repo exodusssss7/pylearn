@@ -23,3 +23,15 @@ function installPolish(){
   // Save before leaving as well, including programmatically updated editor content.
   document.addEventListener('click',()=>document.querySelectorAll('textarea.editor[data-enhanced]').forEach(ed=>{try{localStorage.setItem('pylearn-draft-'+getKey(ed),ed.value)}catch(e){}}),true);
 }
+
+/* One viewport resize handler, no animation loop or layout polling. */
+function installViewportFit(){
+  let queued=false;
+  const fit=()=>{queued=false;const v=window.visualViewport;
+    document.documentElement.style.setProperty('--app-height',(v?v.height:innerHeight)+'px');
+  };
+  const schedule=()=>{if(!queued){queued=true;requestAnimationFrame(fit)}};
+  window.visualViewport?.addEventListener('resize',schedule,{passive:true});
+  window.addEventListener('resize',schedule,{passive:true});fit();
+}
+installViewportFit();

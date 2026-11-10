@@ -1,7 +1,7 @@
-/* PyPerky v1.4 - bite-sized Python lessons, real Python in the browser */
+/* PyPerky v1.5 - bite-sized Python lessons, real Python in the browser */
 "use strict";
 
-const VERSION = "v1.4";
+const VERSION = "v1.5";
 const $ = (s, el) => (el || document).querySelector(s);
 const $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 
@@ -212,7 +212,7 @@ function renderHome() {
   const completed=u.lessons.filter(l=>state.done.includes(l.id)).length;
   return `<details class="unit-section unit-compact" id="${u.id}" ${u.id===activeUnit.id?'open':''}><summary><span class="unit-summary-copy"><span class="unit-kicker">${u.title.split(":")[0]}</span><strong>${u.heading || (u.id==='u1'?'Python from zero':'A place for everything')}</strong><span class="unit-summary-meta">${completed} of ${u.lessons.length} complete</span></span><span class="unit-chevron" aria-hidden="true">⌄</span></summary><div class="unit-description">${u.sub}<div><button class="btn small ghost start-unit" data-start-unit="${u.id}">Start unit</button></div></div><div class="path">${nodes}</div></details>`;
   }).join('');
-  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="continue-card"><div class="step-kicker">${nextLesson?'YOUR NEXT STEP':'BEGINNER PATH COMPLETE'}</div><h2>${nextLesson?esc(nextLesson.title):'96 little steps. Yours.'}</h2><p>${nextLesson?'Pick up where you left off. Every lesson is open. Follow this order or choose any topic.':'Replay a lesson or use practice to keep building.'}</p><div class="course-meter" aria-label="${state.done.length} of ${TOTAL_LESSONS} lessons complete"><i style="transform:scaleX(${state.done.length/TOTAL_LESSONS})"></i></div><button class="btn" id="continue-course">${nextLesson?'Continue learning':'Open practice'}</button></div><div class="map-label">YOUR COURSE <span>${state.done.length} / ${TOTAL_LESSONS}</span></div><label class="step-kicker" for="course-search">FIND A PYTHON TOPIC</label><input id="course-search" class="skill-search" type="search" placeholder="Search units and lessons: loops, classes..." autocomplete="off"><p id="course-search-status" class="course-search-status" role="status">All 12 units are open. Start wherever you want.</p><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div>${sections}</div>${navHTML("home")}</div>`;
+  app.innerHTML = `<div class="view">${topbarHTML()}<div class="home-scroll"><section class="home-overview"><div class="buddy-welcome">${brickBuddy("ready")}<div><strong>One little block at a time.</strong><p>${state.done.length} / ${TOTAL_LESSONS} lessons · ${VERSION}</p></div></div><div class="continue-card"><div class="step-kicker">${nextLesson?'YOUR NEXT STEP':'BEGINNER PATH COMPLETE'}</div><h2>${nextLesson?esc(nextLesson.title):'96 little steps. Yours.'}</h2><p>${nextLesson?'Pick up where you left off. Every lesson is open. Follow this order or choose any topic.':'Replay a lesson or use practice to keep building.'}</p><div class="course-meter" aria-label="${state.done.length} of ${TOTAL_LESSONS} lessons complete"><i style="transform:scaleX(${state.done.length/TOTAL_LESSONS})"></i></div><button class="btn" id="continue-course">${nextLesson?'Continue learning':'Open practice'}</button></div></section><section class="home-course"><div class="map-label">YOUR COURSE <span>${state.done.length} / ${TOTAL_LESSONS}</span></div><label class="step-kicker" for="course-search">FIND A PYTHON TOPIC</label><input id="course-search" class="skill-search" type="search" placeholder="Search units and lessons: loops, classes..." autocomplete="off"><p id="course-search-status" class="course-search-status" role="status">All 12 units are open. Start wherever you want.</p><div class="unit-jumps">${UNITS.map(u=>`<button class="btn ghost small" data-unit="${u.id}">${u.title.split(":")[0]}</button>`).join("")}</div><div class="course-grid">${sections}</div></section></div>${navHTML("home")}</div>`;
 
   $("#continue-course").onclick=()=>nextLesson?startLesson(nextLesson.id):renderPractice();
   $("#course-search").oninput=e=>{
@@ -312,23 +312,23 @@ function renderStep() {
   body.scrollTop = 0;
 
   if (s.t === "info") {
-    body.innerHTML = `<div class="step-anim">${stepHead(s)}
-      <div class="step-prompt">${esc(s.body)}</div>
+    body.innerHTML = `<div class="step-anim"><section class="lesson-copy">${stepHead(s)}
+      <div class="step-prompt">${esc(s.body)}</div></section><section class="lesson-work">
       <div class="code-card"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div>${exampleCode(s.code)}</div>
       ${s.inputs ? `<div class="sample-answers">Sample answers, in order: ${s.inputs.map(a=>esc(a)).join(", ")}</div>` : ""}
       ${consoleHTML(s.out)}
-    </div>`;
+    </section></div>`;
     foot.innerHTML = `<button class="btn" id="next">Continue</button>`;
     $("#next").onclick = nextStep;
   }
 
   if (s.t === "run") {
-    body.innerHTML = `<div class="step-anim">${stepHead(s)}
-      <div class="step-prompt">${esc(s.prompt)}</div>
+    body.innerHTML = `<div class="step-anim"><section class="lesson-copy">${stepHead(s)}
+      <div class="step-prompt">${esc(s.prompt)}</div></section><section class="lesson-work">
       <div class="code-card"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div>${exampleCode(s.code)}</div>
       <div id="pymsg"></div>
       <div id="cout"></div>
-    </div>`;
+    </section></div>`;
     foot.innerHTML = `<button class="btn run-btn" id="run">▶ Run</button>`;
     $("#run").onclick = async () => {
       const btn = $("#run");
@@ -352,10 +352,10 @@ function renderStep() {
   }
 
   if (s.t === "choice") {
-    body.innerHTML = `<div class="step-anim">${stepHead(s)}
-      <div class="step-prompt">${esc(s.prompt)}</div>
+    body.innerHTML = `<div class="step-anim"><section class="lesson-copy">${stepHead(s)}
+      <div class="step-prompt">${esc(s.prompt)}</div></section><section class="lesson-work">
       <div class="choices">${s.options.map((o, i) => `<button class="choice" data-i="${i}">${esc(o)}</button>`).join("")}</div>
-    </div>`;
+    </section></div>`;
     foot.innerHTML = `<button class="btn" id="check" disabled>Check</button>`;
     let sel = -1;
     $$(".choice").forEach((c) => (c.onclick = () => {
@@ -383,11 +383,11 @@ function renderStep() {
   }
 
   if (s.t === "fill") {
-    body.innerHTML = `<div class="step-anim">${stepHead(s)}
-      <div class="step-prompt">${esc(s.prompt)}</div>
+    body.innerHTML = `<div class="step-anim"><section class="lesson-copy">${stepHead(s)}
+      <div class="step-prompt">${esc(s.prompt)}</div></section><section class="lesson-work">
       <div class="fill-line">${esc(s.pre)}<span class="blank" id="blank">&nbsp;</span>${esc(s.post)}</div>
       <div class="chips">${s.options.map((o) => `<button class="chip" data-v="${esc(o).replace(/"/g, "&quot;")}">${esc(o)}</button>`).join("")}</div>
-    </div>`;
+    </section></div>`;
     foot.innerHTML = `<button class="btn" id="check" disabled>Check</button>`;
     const blank = $("#blank");
     let val = null;
@@ -419,11 +419,11 @@ function renderStep() {
 
   if (s.t === "order") {
     let picked = [];
-    body.innerHTML = `<div class="step-anim">${stepHead(s)}
-      <div class="step-prompt">${esc(s.prompt)}</div>
+    body.innerHTML = `<div class="step-anim"><section class="lesson-copy">${stepHead(s)}
+      <div class="step-prompt">${esc(s.prompt)}</div></section><section class="lesson-work">
       <div class="code-card"><pre id="assembled">Tap a line below to add it.</pre></div>
       <div class="choices">${s.lines.map((line, i) => `<button class="choice mono" style="white-space:pre-wrap" data-line="${i}">${esc(line)}</button>`).join("")}</div>
-      <button class="btn ghost small" id="undo">Undo last line</button></div>`;
+      <button class="btn ghost small" id="undo">Undo last line</button></section></div>`;
     foot.innerHTML = `<button class="btn" id="check" disabled>Check order</button>`;
     const update = () => {
       $("#assembled").textContent = picked.length ? picked.map(i => s.lines[i]).join("\n") : "Tap a line below to add it.";
@@ -439,12 +439,12 @@ function renderStep() {
   }
 
   if (s.t === "type") {
-    body.innerHTML = `<div class="step-anim">${stepHead(s)}
-      <div class="step-prompt">${esc(s.prompt)}</div>
+    body.innerHTML = `<div class="step-anim"><section class="lesson-copy">${stepHead(s)}
+      <div class="step-prompt">${esc(s.prompt)}</div></section><section class="lesson-work">
       <div class="editor-wrap"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">main.py</span></div><textarea class="editor" id="ed" spellcheck="false" autocomplete="off" autocapitalize="off">${esc(s.starter)}</textarea></div>
       <div id="pymsg"></div>
       <div id="cout"></div>
-    </div>`;
+    </section></div>`;
     foot.innerHTML = `<button class="btn run-btn" id="run">▶ Run & check</button>`;
     const ed = $("#ed");
     ed.addEventListener("keydown", (e) => {
@@ -566,16 +566,16 @@ function renderPlayground() {
   app.innerHTML = `<div class="view">
     ${topbarHTML()}
     <div class="pad">
-      <div class="pg-title">Playground 🛝</div><p class="pg-file-note">Practice files are temporary: every Run starts fresh. Write and read within the same program. No phone files are accessed or saved.</p>
+      <section class="workspace-intro"><div class="pg-title">Playground 🛝</div><p class="pg-file-note">Practice files are temporary: every Run starts fresh. Write and read within the same program. No phone files are accessed or saved.</p>
       <button class="btn ghost small" data-action="practice" style="margin:12px 0">Guided practice</button>
       <div class="pg-sub">Real Python with text output. input() uses an answer sheet before Run. Run only code you trust, and never enter secrets. Python can use web APIs: this is not a security sandbox.</div>
-      <div class="editor-wrap"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">playground.py</span></div><textarea class="editor" id="pged" spellcheck="false" autocomplete="off" autocapitalize="off" style="min-height:170px">name = "you"\nfor i in range(3):\n    print("Hi " + name + "!", i + 1)</textarea></div>
+      </section><section class="workspace-code"><div class="editor-wrap"><div class="code-head"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="fname">playground.py</span></div><textarea class="editor" id="pged" spellcheck="false" autocomplete="off" autocapitalize="off" style="min-height:170px">name = "you"\nfor i in range(3):\n    print("Hi " + name + "!", i + 1)</textarea></div>
       <div class="pg-actions">
         <button class="btn run-btn" id="pgrun">▶ Run</button>
         <button class="btn ghost" id="pgclear">Clear</button>
       </div>
       <div id="pymsg"></div>
-      <div id="pgout"></div>
+      <div id="pgout"></div></section>
     </div>
     ${navHTML("play")}
   </div>`;

@@ -86,15 +86,15 @@ function renderPractice(index = practiceIndex) {
   navView = 'play';
   const card = PRACTICE[index];
   app.innerHTML = `<div class="view">${topbarHTML()}<div class="pad">
-    <div class="pg-title">Practice, your way</div><div class="pg-sub">Practice the idea, not the spelling of a sample message.</div>
+    <section class="workspace-intro"><div class="pg-title">Practice, your way</div><div class="pg-sub">Practice the idea, not the spelling of a sample message.</div>
     <div class="practice-tabs"><button class="btn small" id="guided">Guided</button><button class="btn small ghost" id="free">Free code</button></div>
     <label class="step-kicker" for="skill-search">FIND A SKILL</label><input id="skill-search" class="skill-search" type="search" placeholder="Search 91 skills: loops, files, classes..." autocomplete="off"><label class="visually-hidden" for="skill">Choose a skill</label>
     <select id="skill" class="skill-select">${PRACTICE.map((c,i)=>`<option value="${i}" ${i===index?'selected':''}>${i+1}. ${c.name}</option>`).join('')}</select>
     <div class="practice-intro"><strong>${card.name}</strong><p>${card.intro}</p></div>
     <div class="step-prompt">${card.prompt}</div>
-    <div class="editor-wrap"><div class="code-head"><span class="fname">practice.py</span></div><textarea id="practice-editor" class="editor" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(card.starter)}</textarea></div>
+    </section><section class="workspace-code"><div class="editor-wrap"><div class="code-head"><span class="fname">practice.py</span></div><textarea id="practice-editor" class="editor" spellcheck="false" autocapitalize="off" autocomplete="off">${esc(card.starter)}</textarea></div>
     <div class="pg-actions"><button class="btn run-btn" id="practice-run">Run & check</button><button class="btn ghost" id="practice-hint">Hint</button></div>
-    <div id="practice-buddy"></div><div id="practice-help" class="practice-feedback" hidden></div><div id="practice-output"></div>
+    <div id="practice-buddy"></div><div id="practice-help" class="practice-feedback" hidden></div><div id="practice-output"></div></section>
   </div>${navHTML('play')}</div>`;
   bindNav();
   $('#skill').onchange = e => renderPractice(+e.target.value);
